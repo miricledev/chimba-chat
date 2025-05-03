@@ -1,0 +1,539 @@
+// server/seeders/sampleData.js
+const bcrypt = require('bcrypt');
+const { v4: uuidv4 } = require('uuid');
+
+module.exports = {
+  up: async (queryInterface, Sequelize) => {
+    try {
+      // Create admin and regular user
+      const adminPassword = await bcrypt.hash('admin123', 10);
+      const userPassword = await bcrypt.hash('user123', 10);
+      
+      const users = [
+        {
+          id: uuidv4(),
+          username: 'admin',
+          email: 'admin@example.com',
+          password: adminPassword,
+          role: 'admin',
+          xp: 500,
+          isPremium: true,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        },
+        {
+          id: uuidv4(),
+          username: 'user',
+          email: 'user@example.com',
+          password: userPassword,
+          role: 'user',
+          xp: 250,
+          isPremium: false,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }
+      ];
+      
+      await queryInterface.bulkInsert('Users', users);
+      
+      // Create sample stories
+      const stories = [
+        // Beginner story
+        {
+          id: uuidv4(),
+          title: 'Primer día en Madrid',
+          description: 'Anna llega a Madrid para su viaje de estudios y tiene su primera conversación con una familia local.',
+          level: 'beginner',
+          tags: ['travel', 'introduction', 'greetings'],
+          imageUrl: 'https://images.unsplash.com/photo-1539037116277-4db20889f2d4?w=800',
+          isPremium: false,
+          messageCount: 10,
+          totalXp: 70,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        },
+        // Intermediate story
+        {
+          id: uuidv4(),
+          title: 'En el restaurante',
+          description: 'Carlos está en un restaurante en Barcelona y necesita pedir comida y hacer preguntas al camarero.',
+          level: 'intermediate',
+          tags: ['food', 'restaurant', 'ordering'],
+          imageUrl: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800',
+          isPremium: false,
+          messageCount: 12,
+          totalXp: 95,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        },
+        // Advanced story
+        {
+          id: uuidv4(),
+          title: 'Entrevista de trabajo',
+          description: 'Marta tiene una entrevista para un trabajo en una empresa española y necesita impresionar al entrevistador.',
+          level: 'advanced',
+          tags: ['business', 'career', 'interview'],
+          imageUrl: 'https://images.unsplash.com/photo-1486312338219-ce68d2c6f44d?w=800',
+          isPremium: true,
+          messageCount: 15,
+          totalXp: 120,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }
+      ];
+      
+      await queryInterface.bulkInsert('Stories', stories);
+      
+      // Create messages for the first story (Beginner: "Primer día en Madrid")
+      const beginnerStoryId = stories[0].id;
+      
+      const beginnerMessages = [
+        {
+          id: uuidv4(),
+          storyId: beginnerStoryId,
+          text: '¡Hola! Me llamo María. Bienvenida a Madrid. ¿Cómo te llamas?',
+          order: 0,
+          quizType: 'none',
+          xpValue: 5,
+          translations: JSON.stringify({
+            'hola': 'hello',
+            'me llamo': 'my name is',
+            'bienvenida': 'welcome',
+            'cómo te llamas': 'what is your name'
+          }),
+          createdAt: new Date(),
+          updatedAt: new Date()
+        },
+        {
+          id: uuidv4(),
+          storyId: beginnerStoryId,
+          text: 'Hola María. Me llamo Anna. Estoy muy feliz de estar en Madrid.',
+          order: 1,
+          quizType: 'none',
+          xpValue: 5,
+          translations: JSON.stringify({
+            'estoy': 'I am',
+            'muy': 'very',
+            'feliz': 'happy',
+            'de estar': 'to be',
+            'en': 'in'
+          }),
+          createdAt: new Date(),
+          updatedAt: new Date()
+        },
+        {
+          id: uuidv4(),
+          storyId: beginnerStoryId,
+          text: '¿De dónde eres, Anna?',
+          order: 2,
+          quizType: 'none',
+          xpValue: 5,
+          translations: JSON.stringify({
+            'de dónde eres': 'where are you from'
+          }),
+          createdAt: new Date(),
+          updatedAt: new Date()
+        },
+        {
+          id: uuidv4(),
+          storyId: beginnerStoryId,
+          text: 'Soy de los Estados Unidos, de California. ¿Y tú?',
+          order: 3,
+          quizType: 'multiple-choice',
+          quizQuestion: '¿Qué significa "Soy de los Estados Unidos"?',
+          options: JSON.stringify(['I am from the United States', 'I am going to the United States', 'I like the United States']),
+          correctOption: 'I am from the United States',
+          xpValue: 10,
+          translations: JSON.stringify({
+            'soy de': 'I am from',
+            'los estados unidos': 'the United States',
+            'y tú': 'and you'
+          }),
+          createdAt: new Date(),
+          updatedAt: new Date()
+        },
+        {
+          id: uuidv4(),
+          storyId: beginnerStoryId,
+          text: 'Yo soy de Madrid, nací aquí. ¿Es tu primera vez en España?',
+          order: 4,
+          quizType: 'none',
+          xpValue: 5,
+          translations: JSON.stringify({
+            'yo soy de': 'I am from',
+            'nací': 'I was born',
+            'aquí': 'here',
+            'es tu primera vez': 'is it your first time',
+            'españa': 'Spain'
+          }),
+          createdAt: new Date(),
+          updatedAt: new Date()
+        },
+        {
+          id: uuidv4(),
+          storyId: beginnerStoryId,
+          text: 'Sí, es mi primera vez. Estoy aquí para estudiar español por tres meses.',
+          order: 5,
+          quizType: 'fill-blank',
+          quizQuestion: 'Complete: "Estoy aquí para _______ español"',
+          options: JSON.stringify(['comer', 'estudiar', 'comprar']),
+          correctOption: 'estudiar',
+          xpValue: 10,
+          translations: JSON.stringify({
+            'sí': 'yes',
+            'es mi primera vez': 'it is my first time',
+            'estoy aquí para': 'I am here to',
+            'estudiar': 'study',
+            'por': 'for',
+            'tres meses': 'three months'
+          }),
+          createdAt: new Date(),
+          updatedAt: new Date()
+        },
+        {
+          id: uuidv4(),
+          storyId: beginnerStoryId,
+          text: '¡Qué bien! Te va a encantar Madrid. Hay muchas cosas para hacer y ver.',
+          order: 6,
+          quizType: 'none',
+          xpValue: 5,
+          translations: JSON.stringify({
+            'qué bien': 'that's great',
+            'te va a encantar': 'you are going to love',
+            'hay': 'there are',
+            'muchas': 'many',
+            'cosas': 'things',
+            'para hacer': 'to do',
+            'y ver': 'and see'
+          }),
+          createdAt: new Date(),
+          updatedAt: new Date()
+        },
+        {
+          id: uuidv4(),
+          storyId: beginnerStoryId,
+          text: '¿Tienes algunas recomendaciones? Me gustaría visitar lugares interesantes.',
+          order: 7,
+          quizType: 'word-match',
+          quizQuestion: 'Match "recomendaciones" with its meaning:',
+          options: JSON.stringify(['advice', 'recommendations', 'directions']),
+          correctOption: 'recommendations',
+          xpValue: 10,
+          translations: JSON.stringify({
+            'tienes': 'do you have',
+            'algunas': 'some',
+            'recomendaciones': 'recommendations',
+            'me gustaría': 'I would like to',
+            'visitar': 'visit',
+            'lugares': 'places',
+            'interesantes': 'interesting'
+          }),
+          createdAt: new Date(),
+          updatedAt: new Date()
+        },
+        {
+          id: uuidv4(),
+          storyId: beginnerStoryId,
+          text: 'Claro, debes visitar el Museo del Prado, el Parque del Retiro, y la Plaza Mayor. También la comida es muy buena.',
+          order: 8,
+          quizType: 'none',
+          xpValue: 5,
+          translations: JSON.stringify({
+            'claro': 'of course',
+            'debes': 'you should',
+            'visitar': 'visit',
+            'el museo del prado': 'the Prado Museum',
+            'el parque del retiro': 'Retiro Park',
+            'la plaza mayor': 'the Main Square',
+            'también': 'also',
+            'la comida': 'the food',
+            'es muy buena': 'is very good'
+          }),
+          createdAt: new Date(),
+          updatedAt: new Date()
+        },
+        {
+          id: uuidv4(),
+          storyId: beginnerStoryId,
+          text: '¡Gracias por las recomendaciones, María! Estoy muy emocionada de explorar la ciudad.',
+          order: 9,
+          quizType: 'multiple-choice',
+          quizQuestion: '¿Cómo se siente Anna sobre explorar Madrid?',
+          options: JSON.stringify(['Emocionada', 'Asustada', 'Aburrida']),
+          correctOption: 'Emocionada',
+          xpValue: 10,
+          translations: JSON.stringify({
+            'gracias por': 'thank you for',
+            'las recomendaciones': 'the recommendations',
+            'estoy muy emocionada': 'I am very excited',
+            'de explorar': 'to explore',
+            'la ciudad': 'the city'
+          }),
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }
+      ];
+      
+      await queryInterface.bulkInsert('Messages', beginnerMessages);
+      
+      // Create messages for the second story (Intermediate: "En el restaurante")
+      const intermediateStoryId = stories[1].id;
+      
+      const intermediateMessages = [
+        {
+          id: uuidv4(),
+          storyId: intermediateStoryId,
+          text: 'Buenas tardes, señor. Bienvenido a La Catalana. ¿Tiene reserva?',
+          order: 0,
+          quizType: 'none',
+          xpValue: 5,
+          translations: JSON.stringify({
+            'buenas tardes': 'good afternoon',
+            'señor': 'sir',
+            'bienvenido': 'welcome',
+            'tiene reserva': 'do you have a reservation'
+          }),
+          createdAt: new Date(),
+          updatedAt: new Date()
+        },
+        {
+          id: uuidv4(),
+          storyId: intermediateStoryId,
+          text: 'Buenas tardes. No, no tengo reserva. ¿Hay una mesa disponible para una persona?',
+          order: 1,
+          quizType: 'multiple-choice',
+          quizQuestion: '¿Para cuántas personas quiere Carlos una mesa?',
+          options: JSON.stringify(['Una persona', 'Dos personas', 'Tres personas']),
+          correctOption: 'Una persona',
+          xpValue: 10,
+          translations: JSON.stringify({
+            'no': 'no',
+            'no tengo reserva': 'I don\'t have a reservation',
+            'hay': 'is there',
+            'una mesa disponible': 'a table available',
+            'para': 'for',
+            'una persona': 'one person'
+          }),
+          createdAt: new Date(),
+          updatedAt: new Date()
+        },
+        {
+          id: uuidv4(),
+          storyId: intermediateStoryId,
+          text: 'Sí, tenemos una mesa junto a la ventana. ¿Le parece bien?',
+          order: 2,
+          quizType: 'none',
+          xpValue: 5,
+          translations: JSON.stringify({
+            'sí': 'yes',
+            'tenemos': 'we have',
+            'una mesa': 'a table',
+            'junto a': 'next to',
+            'la ventana': 'the window',
+            'le parece bien': 'is that OK for you'
+          }),
+          createdAt: new Date(),
+          updatedAt: new Date()
+        },
+        {
+          id: uuidv4(),
+          storyId: intermediateStoryId,
+          text: 'Perfecto, gracias. ¿Me puede traer la carta, por favor?',
+          order: 3,
+          quizType: 'word-match',
+          quizQuestion: '¿Qué significa "la carta" en este contexto?',
+          options: JSON.stringify(['The letter', 'The menu', 'The bill']),
+          correctOption: 'The menu',
+          xpValue: 10,
+          translations: JSON.stringify({
+            'perfecto': 'perfect',
+            'gracias': 'thank you',
+            'me puede traer': 'can you bring me',
+            'la carta': 'the menu',
+            'por favor': 'please'
+          }),
+          createdAt: new Date(),
+          updatedAt: new Date()
+        },
+        {
+          id: uuidv4(),
+          storyId: intermediateStoryId,
+          text: 'Aquí tiene la carta. ¿Desea algo de beber mientras decide?',
+          order: 4,
+          quizType: 'none',
+          xpValue: 5,
+          translations: JSON.stringify({
+            'aquí tiene': 'here you have',
+            'desea algo de beber': 'would you like something to drink',
+            'mientras': 'while',
+            'decide': 'you decide'
+          }),
+          createdAt: new Date(),
+          updatedAt: new Date()
+        },
+        {
+          id: uuidv4(),
+          storyId: intermediateStoryId,
+          text: 'Sí, quisiera una copa de vino tinto, por favor. ¿Cuál recomienda?',
+          order: 5,
+          quizType: 'multiple-choice',
+          quizQuestion: '¿Qué tipo de vino quiere Carlos?',
+          options: JSON.stringify(['Vino tinto', 'Vino blanco', 'Vino rosado']),
+          correctOption: 'Vino tinto',
+          xpValue: 10,
+          translations: JSON.stringify({
+            'quisiera': 'I would like',
+            'una copa de': 'a glass of',
+            'vino tinto': 'red wine',
+            'cuál recomienda': 'which do you recommend'
+          }),
+          createdAt: new Date(),
+          updatedAt: new Date()
+        },
+        {
+          id: uuidv4(),
+          storyId: intermediateStoryId,
+          text: 'Le recomiendo el Rioja Reserva, es excelente con nuestras tapas.',
+          order: 6,
+          quizType: 'none',
+          xpValue: 5,
+          translations: JSON.stringify({
+            'le recomiendo': 'I recommend you',
+            'es excelente': 'it\'s excellent',
+            'con': 'with',
+            'nuestras': 'our',
+            'tapas': 'tapas'
+          }),
+          createdAt: new Date(),
+          updatedAt: new Date()
+        },
+        {
+          id: uuidv4(),
+          storyId: intermediateStoryId,
+          text: 'Muy bien, probaré ese. Y para comer, quisiera paella de mariscos y una ensalada mixta.',
+          order: 7,
+          quizType: 'fill-blank',
+          quizQuestion: 'Complete la frase: "Muy bien, _______ ese."',
+          options: JSON.stringify(['comeré', 'probaré', 'veré']),
+          correctOption: 'probaré',
+          xpValue: 10,
+          translations: JSON.stringify({
+            'muy bien': 'very well',
+            'probaré': 'I will try',
+            'ese': 'that one',
+            'y para comer': 'and to eat',
+            'quisiera': 'I would like',
+            'paella de mariscos': 'seafood paella',
+            'una ensalada mixta': 'a mixed salad'
+          }),
+          createdAt: new Date(),
+          updatedAt: new Date()
+        },
+        {
+          id: uuidv4(),
+          storyId: intermediateStoryId,
+          text: 'Excelente elección. Nuestra paella es la especialidad de la casa. ¿Algo más?',
+          order: 8,
+          quizType: 'none',
+          xpValue: 5,
+          translations: JSON.stringify({
+            'excelente elección': 'excellent choice',
+            'nuestra': 'our',
+            'es la especialidad': 'is the specialty',
+            'de la casa': 'of the house',
+            'algo más': 'anything else'
+          }),
+          createdAt: new Date(),
+          updatedAt: new Date()
+        },
+        {
+          id: uuidv4(),
+          storyId: intermediateStoryId,
+          text: 'No, eso es todo por ahora. Muchas gracias.',
+          order: 9,
+          quizType: 'multiple-choice',
+          quizQuestion: '¿Qué significa "eso es todo por ahora"?',
+          options: JSON.stringify(['I want more food', 'That\'s all for now', 'The food is very good']),
+          correctOption: 'That\'s all for now',
+          xpValue: 10,
+          translations: JSON.stringify({
+            'no': 'no',
+            'eso es todo': 'that\'s all',
+            'por ahora': 'for now',
+            'muchas gracias': 'thank you very much'
+          }),
+          createdAt: new Date(),
+          updatedAt: new Date()
+        },
+        {
+          id: uuidv4(),
+          storyId: intermediateStoryId,
+          text: 'Perfecto. Le traeré su vino enseguida, y la comida estará lista en unos 20 minutos.',
+          order: 10,
+          quizType: 'none',
+          xpValue: 5,
+          translations: JSON.stringify({
+            'le traeré': 'I will bring you',
+            'su vino': 'your wine',
+            'enseguida': 'right away',
+            'la comida': 'the food',
+            'estará lista': 'will be ready',
+            'en unos 20 minutos': 'in about 20 minutes'
+          }),
+          createdAt: new Date(),
+          updatedAt: new Date()
+        },
+        {
+          id: uuidv4(),
+          storyId: intermediateStoryId,
+          text: 'Gracias. Disculpe, ¿dónde están los servicios?',
+          order: 11,
+          quizType: 'word-match',
+          quizQuestion: '¿Qué significa "los servicios" en este contexto?',
+          options: JSON.stringify(['The waiters', 'The services', 'The restrooms']),
+          correctOption: 'The restrooms',
+          xpValue: 10,
+          translations: JSON.stringify({
+            'disculpe': 'excuse me',
+            'dónde están': 'where are',
+            'los servicios': 'the restrooms'
+          }),
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }
+      ];
+      
+      await queryInterface.bulkInsert('Messages', intermediateMessages);
+      
+      // Create user progress records
+      const userProgress = [
+        {
+          id: uuidv4(),
+          userId: users[1].id, // regular user
+          storyId: beginnerStoryId,
+          lastMessageIndex: 5,
+          completed: false,
+          xpEarned: 40,
+          correctAnswers: 2,
+          totalQuestions: 2,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }
+      ];
+      
+      await queryInterface.bulkInsert('UserProgresses', userProgress);
+      
+      return true;
+    } catch (error) {
+      console.error('Seeding error:', error);
+      return false;
+    }
+  },
+
+  down: async (queryInterface, Sequelize) => {
+    await queryInterface.bulkDelete('UserProgresses', null, {});
+    await queryInterface.bulkDelete('Messages', null, {});
+    await queryInterface.bulkDelete('Stories', null, {});
+    await queryInterface.bulkDelete('Users', null, {});
+  }
+};

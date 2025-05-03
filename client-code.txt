@@ -1,0 +1,3046 @@
+export default AdminDashboard;
+
+// client/src/pages/AdminStoryCreate.jsx
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import { toast } from 'react-toastify';
+import { API_URL } from '../config';
+import { FaPlus, FaTrash, FaSave, FaArrowLeft } from 'react-icons/fa';
+
+const AdminStoryCreate = () => {
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [level, setLevel] = useState('beginner');
+  const [tags, setTags] = useState('');
+  const [isPremium, setIsPremium] = useState(false);
+  const [messages, setMessages] = useState([
+    { text: 'Hola! Bienvenido a nuestra historia.', order: 0, quizType: 'none', translations: {} }
+  ]);
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
+  
+  const handleAddMessage = () => {
+    setMessages([
+      ...messages,
+      { 
+        text: '', 
+        order: messages.length, 
+        quizType: 'none',
+        options: [],
+        correctOption: '',
+        translations: {} 
+      }
+    ]);
+  };
+  
+  const handleRemoveMessage = (index) => {
+    const newMessages = [...messages];
+    newMessages.splice(index, 1);
+    
+    // Update the order of remaining messages
+    const updatedMessages = newMessages.map((msg, idx) => ({
+      ...msg,
+      order: idx
+    }));
+    
+    setMessages(updatedMessages);
+  };
+  
+  const handleMessageChange = (index, field, value) => {
+    const newMessages = [...messages];
+    newMessages[index][field] = value;
+    setMessages(newMessages);
+  };
+  
+  const handleOptionsChange = (index, options) => {
+    const optionsArray = options.split(',').map(opt => opt.trim()).filter(opt => opt);
+    const newMessages = [...messages];
+    newMessages[index].options = optionsArray;
+    setMessages(newMessages);
+  };
+  
+  const handleTranslationsChange = (index, translationsText) => {
+    try {
+      // Parse translations from text format (word:translation, word:translation)
+      const translationsObj = {};
+      translationsText.split(',').forEach(pair => {
+        const [word, translation] = pair.split(':').map(item => item.trim());
+        if (word && translation) {
+          translationsObj[word.toLowerCase()] = translation;
+        }
+      });
+      
+      const newMessages = [...messages];
+      newMessages[index].translations = translationsObj;
+      setMessages(newMessages);
+    } catch (error) {
+      console.error('Error parsing translations:', error);
+    }
+  };
+  
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (!title || !description || messages.some(msg => !msg.text)) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+    
+    const storyData = {
+      title,
+      description,
+      level,
+      tags: tags.split(',').map(tag => tag.trim()).filter(tag => tag),
+      isPremium,
+      messages: messages.map(msg => ({
+        ...msg,
+        xpValue: msg.quizType !== 'none' ? 10 : 5 // More XP for quiz messages
+      }))
+    };
+    
+    try {
+      setLoading(true);
+      await axios.post(`${API_URL}/admin/stories`, storyData);
+      toast.success('Story created successfully');
+      navigate('/admin');
+    } catch (error) {
+      console.error('Error creating story:', error);
+      toast.error('Failed to create story');
+      setLoading(false);
+    }
+  };
+  
+  return (
+    <div className="max-w-4xl mx-auto">
+      <div className="flex items-center mb-6">
+        <button 
+          onClick={() => navigate('/admin')}
+          className="mr-4 btn bg-white text-gray-700 hover:bg-gray-100 shadow-sm"
+        >
+          <FaArrowLeft className="mr-2" /> Back to Dashboard
+        </button>
+        
+        <h1 className="text-2xl font-bold text-gray-900">Create New Story</h1>
+      </div>
+      
+      <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-md p-6">
+        <div className="grid grid-cols-1 gap-6">
+          {/* Story details */}
+          <div className="space-y-4">
+            <h2 className="text-xl font-semibold border-b pb-2">Story Details</h2>
+            
+            <div>
+              <label htmlFor="title" className="form-label">Title</label>
+              <input
+                id="title"
+                type="text"
+                className="form-input"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                required
+              />
+            </div>
+            
+            <div>
+              <label htmlFor="description" className="form-label">Description</label>
+              <textarea
+                id="description"
+                className="form-input h-24"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                required
+              />
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label htmlFor="level" className="form-label">Level</label>
+                <select
+                  id="level"
+                  className="form-input"
+                  value={level}
+                  onChange={(e) => setLevel(e.target.value)}
+                >
+                  <option value="beginner">Beginner</option>
+                  <option value="intermediate">Intermediate</option>
+                  <option value="advanced">Advanced</option>
+                </select>
+              </div>
+              
+              <div>
+                <label htmlFor="tags" className="form-label">Tags (comma separated)</label>
+                <input
+                  id="tags"
+                  type="text"
+                  className="form-input"
+                  value={tags}
+                  onChange={(e) => setTags(e.target.value)}
+                  placeholder="travel, food, family"
+                />
+              </div>
+              
+              <div className="flex items-center mt-8">
+                <input
+                  id="isPremium"
+                  type="checkbox"
+                  className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                  checked={isPremium}
+                  onChange={(e) => setIsPremium(e.target.checked)}
+                />
+                <label htmlFor="isPremium" className="ml-2 block text-gray-700">
+                  Premium Story
+                </label>
+              </div>
+            </div>
+          </div>
+          
+          {/* Messages */}
+          <div className="space-y-6 mt-4">
+            <h2 className="text-xl font-semibold border-b pb-2">Messages</h2>
+            
+            {messages.map((message, index) => (
+              <div key={index} className="bg-gray-50 p-4 rounded-md relative space-y-3">
+                <button
+                  type="button"
+                  className="absolute top-2 right-2 text-red-500 hover:text-red-700"
+                  onClick={() => handleRemoveMessage(index)}
+                  disabled={messages.length === 1}
+                >
+                  <FaTrash />
+                </button>
+                
+                <div>
+                  <label className="form-label">Message {index + 1}</label>
+                  <textarea
+                    className="form-input h-20"
+                    value={message.text}
+                    onChange={(e) => handleMessageChange(index, 'text', e.target.value)}
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label className="form-label">Quiz Type</label>
+                  <select
+                    className="form-input"
+                    value={message.quizType}
+                    onChange={(e) => handleMessageChange(index, 'quizType', e.target.value)}
+                  >
+                    <option value="none">No Quiz</option>
+                    <option value="multiple-choice">Multiple Choice</option>
+                    <option value="fill-blank">Fill in the Blank</option>
+                    <option value="word-match">Word Matching</option>
+                  </select>
+                </div>
+                
+                {message.quizType !== 'none' && (
+                  <>
+                    <div>
+                      <label className="form-label">Quiz Question</label>
+                      <input
+                        type="text"
+                        className="form-input"
+                        value={message.quizQuestion || ''}
+                        onChange={(e) => handleMessageChange(index, 'quizQuestion', e.target.value)}
+                        placeholder="What does this word mean?"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="form-label">Options (comma separated)</label>
+                      <input
+                        type="text"
+                        className="form-input"
+                        value={message.options ? message.options.join(', ') : ''}
+                        onChange={(e) => handleOptionsChange(index, e.target.value)}
+                        placeholder="Option 1, Option 2, Option 3"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="form-label">Correct Option</label>
+                      <input
+                        type="text"
+                        className="form-input"
+                        value={message.correctOption || ''}
+                        onChange={(e) => handleMessageChange(index, 'correctOption', e.target.value)}
+                        placeholder="The correct answer"
+                      />
+                    </div>
+                  </>
+                )}
+                
+                <div>
+                  <label className="form-label">
+                    Word Translations (format: word:translation, word:translation)
+                  </label>
+                  <textarea
+                    className="form-input h-16"
+                    value={Object.entries(message.translations || {})
+                      .map(([word, translation]) => `${word}:${translation}`)
+                      .join(', ')}
+                    onChange={(e) => handleTranslationsChange(index, e.target.value)}
+                    placeholder="hola:hello, adiós:goodbye"
+                  />
+                </div>
+              </div>
+            ))}
+            
+            <button
+              type="button"
+              className="btn bg-gray-100 text-gray-700 hover:bg-gray-200 flex items-center"
+              onClick={handleAddMessage}
+            >
+              <FaPlus className="mr-2" /> Add Message
+            </button>
+          </div>
+          
+          <div className="flex justify-end pt-4 border-t">
+            <button
+              type="button"
+              className="btn btn-secondary mr-4"
+              onClick={() => navigate('/admin')}
+            >
+              Cancel
+            </button>
+            
+            <button
+              type="submit"
+              className="btn btn-primary flex items-center"
+              disabled={loading}
+            >
+              {loading ? (
+                <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white mr-2"></div>
+              ) : (
+                <FaSave className="mr-2" />
+              )}
+              Create Story
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  );
+};
+
+export default AdminStoryCreate;
+
+// client/src/pages/AdminStoryEdit.jsx
+import { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import { toast } from 'react-toastify';
+import { API_URL } from '../config';
+import { FaPlus, FaTrash, FaSave, FaArrowLeft, FaEye } from 'react-icons/fa';
+
+const AdminStoryEdit = () => {
+  const { id } = useParams();
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [level, setLevel] = useState('beginner');
+  const [tags, setTags] = useState('');
+  const [isPremium, setIsPremium] = useState(false);
+  const [messages, setMessages] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const navigate = useNavigate();
+  
+  useEffect(() => {
+    fetchStory();
+  }, [id]);
+  
+  const fetchStory = async () => {
+    try {
+      setLoading(true);
+      const { data } = await axios.get(`${API_URL}/stories/${id}`);
+      
+      // Set story data
+      setTitle(data.story.title);
+      setDescription(data.story.description);
+      setLevel(data.story.level);
+      setTags((data.story.tags || []).join(', '));
+      setIsPremium(data.story.isPremium);
+      
+      // Sort messages by order
+      const sortedMessages = [...data.story.messages].sort((a, b) => a.order - b.order);
+      setMessages(sortedMessages);
+    } catch (error) {
+      console.error('Error fetching story:', error);
+      toast.error('Failed to load story');
+      navigate('/admin');
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const handleAddMessage = () => {
+    setMessages([
+      ...messages,
+      { 
+        text: '', 
+        order: messages.length, 
+        quizType: 'none',
+        options: [],
+        correctOption: '',
+        translations: {} 
+      }
+    ]);
+  };
+  
+  const handleRemoveMessage = (index) => {
+    const newMessages = [...messages];
+    newMessages.splice(index, 1);
+    
+    // Update the order of remaining messages
+    const updatedMessages = newMessages.map((msg, idx) => ({
+      ...msg,
+      order: idx
+    }));
+    
+    setMessages(updatedMessages);
+  };
+  
+  const handleMessageChange = (index, field, value) => {
+    const newMessages = [...messages];
+    newMessages[index][field] = value;
+    setMessages(newMessages);
+  };
+  
+  const handleOptionsChange = (index, options) => {
+    const optionsArray = options.split(',').map(opt => opt.trim()).filter(opt => opt);
+    const newMessages = [...messages];
+    newMessages[index].options = optionsArray;
+    setMessages(newMessages);
+  };
+  
+  const handleTranslationsChange = (index, translationsText) => {
+    try {
+      // Parse translations from text format (word:translation, word:translation)
+      const translationsObj = {};
+      translationsText.split(',').forEach(pair => {
+        const [word, translation] = pair.split(':').map(item => item.trim());
+        if (word && translation) {
+          translationsObj[word.toLowerCase()] = translation;
+        }
+      });
+      
+      const newMessages = [...messages];
+      newMessages[index].translations = translationsObj;
+      setMessages(newMessages);
+    } catch (error) {
+      console.error('Error parsing translations:', error);
+    }
+  };
+  
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (!title || !description || messages.some(msg => !msg.text)) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+    
+    const storyData = {
+      title,
+      description,
+      level,
+      tags: tags.split(',').map(tag => tag.trim()).filter(tag => tag),
+      isPremium,
+      messages: messages.map(msg => ({
+        ...msg,
+        xpValue: msg.quizType !== 'none' ? 10 : 5 // More XP for quiz messages
+      }))
+    };
+    
+    try {
+      setSaving(true);
+      await axios.put(`${API_URL}/admin/stories/${id}`, storyData);
+      toast.success('Story updated successfully');
+      navigate('/admin');
+    } catch (error) {
+      console.error('Error updating story:', error);
+      toast.error('Failed to update story');
+      setSaving(false);
+    }
+  };
+  
+  if (loading) {
+    return (
+      <div className="flex justify-center py-12">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-600"></div>
+      </div>
+    );
+  }
+  
+  return (
+    <div className="max-w-4xl mx-auto">
+      <div className="flex items-center mb-6">
+        <button 
+          onClick={() => navigate('/admin')}
+          className="mr-4 btn bg-white text-gray-700 hover:bg-gray-100 shadow-sm"
+        >
+          <FaArrowLeft className="mr-2" /> Back to Dashboard
+        </button>
+        
+        <h1 className="text-2xl font-bold text-gray-900">Edit Story</h1>
+        
+        <Link 
+          to={`/story/${id}`}
+          className="ml-auto btn btn-secondary flex items-center"
+        >
+          <FaEye className="mr-2" /> Preview
+        </Link>
+      </div>
+      
+      <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-md p-6">
+        <div className="grid grid-cols-1 gap-6">
+          {/* Story details */}
+          <div className="space-y-4">
+            <h2 className="text-xl font-semibold border-b pb-2">Story Details</h2>
+            
+            <div>
+              <label htmlFor="title" className="form-label">Title</label>
+              <input
+                id="title"
+                type="text"
+                className="form-input"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                required
+              />
+            </div>
+            
+            <div>
+              <label htmlFor="description" className="form-label">Description</label>
+              <textarea
+                id="description"
+                className="form-input h-24"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                required
+              />
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label htmlFor="level" className="form-label">Level</label>
+                <select
+                  id="level"
+                  className="form-input"
+                  value={level}
+                  onChange={(e) => setLevel(e.target.value)}
+                >
+                  <option value="beginner">Beginner</option>
+                  <option value="intermediate">Intermediate</option>
+                  <option value="advanced">Advanced</option>
+                </select>
+              </div>
+              
+              <div>
+                <label htmlFor="tags" className="form-label">Tags (comma separated)</label>
+                <input
+                  id="tags"
+                  type="text"
+                  className="form-input"
+                  value={tags}
+                  onChange={(e) => setTags(e.target.value)}
+                  placeholder="travel, food, family"
+                />
+              </div>
+              
+              <div className="flex items-center mt-8">
+                <input
+                  id="isPremium"
+                  type="checkbox"
+                  className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                  checked={isPremium}
+                  onChange={(e) => setIsPremium(e.target.checked)}
+                />
+                <label htmlFor="isPremium" className="ml-2 block text-gray-700">
+                  Premium Story
+                </label>
+              </div>
+            </div>
+          </div>
+          
+          {/* Messages */}
+          <div className="space-y-6 mt-4">
+            <h2 className="text-xl font-semibold border-b pb-2">Messages</h2>
+            
+            {messages.map((message, index) => (
+              <div key={index} className="bg-gray-50 p-4 rounded-md relative space-y-3">
+                <button
+                  type="button"
+                  className="absolute top-2 right-2 text-red-500 hover:text-red-700"
+                  onClick={() => handleRemoveMessage(index)}
+                  disabled={messages.length === 1}
+                >
+                  <FaTrash />
+                </button>
+                
+                <div>
+                  <label className="form-label">Message {index + 1}</label>
+                  <textarea
+                    className="form-input h-20"
+                    value={message.text}
+                    onChange={(e) => handleMessageChange(index, 'text', e.target.value)}
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label className="form-label">Quiz Type</label>
+                  <select
+                    className="form-input"
+                    value={message.quizType}
+                    onChange={(e) => handleMessageChange(index, 'quizType', e.target.value)}
+                  >
+                    <option value="none">No Quiz</option>
+                    <option value="multiple-choice">Multiple Choice</option>
+                    <option value="fill-blank">Fill in the Blank</option>
+                    <option value="word-match">Word Matching</option>
+                  </select>
+                </div>
+                
+                {message.quizType !== 'none' && (
+                  <>
+                    <div>
+                      <label className="form-label">Quiz Question</label>
+                      <input
+                        type="text"
+                        className="form-input"
+                        value={message.quizQuestion || ''}
+                        onChange={(e) => handleMessageChange(index, 'quizQuestion', e.target.value)}
+                        placeholder="What does this word mean?"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="form-label">Options (comma separated)</label>
+                      <input
+                        type="text"
+                        className="form-input"
+                        value={message.options ? message.options.join(', ') : ''}
+                        onChange={(e) => handleOptionsChange(index, e.target.value)}
+                        placeholder="Option 1, Option 2, Option 3"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="form-label">Correct Option</label>
+                      <input
+                        type="text"
+                        className="form-input"
+                        value={message.correctOption || ''}
+                        onChange={(e) => handleMessageChange(index, 'correctOption', e.target.value)}
+                        placeholder="The correct answer"
+                      />
+                    </div>
+                  </>
+                )}
+                
+                <div>
+                  <label className="form-label">
+                    Word Translations (format: word:translation, word:translation)
+                  </label>
+                  <textarea
+                    className="form-input h-16"
+                    value={Object.entries(message.translations || {})
+                      .map(([word, translation]) => `${word}:${translation}`)
+                      .join(', ')}
+                    onChange={(e) => handleTranslationsChange(index, e.target.value)}
+                    placeholder="hola:hello, adiós:goodbye"
+                  />
+                </div>
+              </div>
+            ))}
+            
+            <button
+              type="button"
+              className="btn bg-gray-100 text-gray-700 hover:bg-gray-200 flex items-center"
+              onClick={handleAddMessage}
+            >
+              <FaPlus className="mr-2" /> Add Message
+            </button>
+          </div>
+          
+          <div className="flex justify-end pt-4 border-t">
+            <button
+              type="button"
+              className="btn btn-secondary mr-4"
+              onClick={() => navigate('/admin')}
+            >
+              Cancel
+            </button>
+            
+            <button
+              type="submit"
+              className="btn btn-primary flex items-center"
+              disabled={saving}
+            >
+              {saving ? (
+                <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white mr-2"></div>
+              ) : (
+                <FaSave className="mr-2" />
+              )}
+              Save Changes
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  );
+};
+
+export default AdminStoryEdit;
+
+// client/src/config.js
+export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
+// client/vite.config.js
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+
+// https://vitejs.dev/config/
+export default defineConfig({
+  plugins: [react()],
+  server: {
+    port: 5173,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+      },
+    },
+  },
+});
+
+// client/tailwind.config.js
+/** @type {import('tailwindcss').Config} */
+export default {
+  content: [
+    "./index.html",
+    "./src/**/*.{js,ts,jsx,tsx}",
+  ],
+  theme: {
+    extend: {},
+  },
+  plugins: [],
+}
+
+// client/.env.example
+VITE_API_URL=http://localhost:5000/api
+VITE_STRIPE_PRICE_ID=price_your_price_id_here// client/package.json
+{
+  "name": "spanish-learning-client",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@stripe/stripe-js": "^1.54.0",
+    "axios": "^1.4.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-icons": "^4.9.0",
+    "react-router-dom": "^6.11.2",
+    "react-toastify": "^9.1.3"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.8",
+    "@types/react-dom": "^18.2.4",
+    "@vitejs/plugin-react": "^4.0.0",
+    "autoprefixer": "^10.4.14",
+    "postcss": "^8.4.24",
+    "tailwindcss": "^3.3.2",
+    "vite": "^4.3.9"
+  }
+}
+
+// client/index.html
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Learn Spanish through interactive text message style stories" />
+    <title>SpanishChat - Learn Spanish Through Interactive Stories</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  </head>
+  <body class="bg-gray-50 text-gray-900 min-h-screen">
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
+
+// client/src/main.jsx
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import { BrowserRouter } from 'react-router-dom';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+import App from './App';
+import { AuthProvider } from './contexts/AuthContext';
+import './index.css';
+
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <React.StrictMode>
+    <BrowserRouter>
+      <AuthProvider>
+        <App />
+        <ToastContainer position="top-right" autoClose={3000} />
+      </AuthProvider>
+    </BrowserRouter>
+  </React.StrictMode>
+);
+
+// client/src/index.css
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    font-family: 'Inter', sans-serif;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply px-6 py-2 rounded-lg font-medium transition duration-200 focus:outline-none focus:ring-2 focus:ring-opacity-50;
+  }
+  
+  .btn-primary {
+    @apply bg-indigo-600 text-white hover:bg-indigo-700 focus:ring-indigo-500;
+  }
+  
+  .btn-secondary {
+    @apply bg-gray-200 text-gray-800 hover:bg-gray-300 focus:ring-gray-300;
+  }
+  
+  .btn-success {
+    @apply bg-green-600 text-white hover:bg-green-700 focus:ring-green-500;
+  }
+  
+  .btn-danger {
+    @apply bg-red-600 text-white hover:bg-red-700 focus:ring-red-500;
+  }
+  
+  .form-input {
+    @apply block w-full px-4 py-2 mt-2 text-gray-900 bg-white border border-gray-300 rounded-lg focus:border-indigo-500 focus:ring-indigo-500 focus:ring-opacity-40 focus:outline-none focus:ring;
+  }
+  
+  .form-label {
+    @apply block text-sm font-medium text-gray-700 mb-1;
+  }
+  
+  .form-error {
+    @apply mt-1 text-sm text-red-600;
+  }
+
+  .text-bubble {
+    @apply relative max-w-xs sm:max-w-md p-4 rounded-2xl shadow-sm mx-2 my-1;
+  }
+  
+  .text-bubble-sender {
+    @apply bg-indigo-600 text-white ml-auto rounded-tr-none;
+  }
+  
+  .text-bubble-receiver {
+    @apply bg-gray-200 text-gray-800 mr-auto rounded-tl-none;
+  }
+
+  .highlighted-word {
+    @apply cursor-pointer text-indigo-600 font-medium hover:underline;
+  }
+  
+  .tooltip {
+    @apply absolute z-10 p-2 bg-gray-800 text-white rounded text-sm shadow-lg;
+  }
+}
+
+// client/src/App.jsx
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { useAuth } from './contexts/AuthContext';
+import Layout from './components/Layout';
+import ProtectedRoute from './components/ProtectedRoute';
+import AdminRoute from './components/AdminRoute';
+import Landing from './pages/Landing';
+import Login from './pages/Login';
+import Register from './pages/Register';
+import Dashboard from './pages/Dashboard';
+import StoryView from './pages/StoryView';
+import AdminDashboard from './pages/AdminDashboard';
+import AdminStoryCreate from './pages/AdminStoryCreate';
+import AdminStoryEdit from './pages/AdminStoryEdit';
+import NotFound from './pages/NotFound';
+import SubscriptionSuccess from './pages/SubscriptionSuccess';
+import SubscriptionCancel from './pages/SubscriptionCancel';
+import Leaderboard from './pages/Leaderboard';
+
+function App() {
+  const { loading } = useAuth();
+  
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-indigo-600"></div>
+      </div>
+    );
+  }
+  
+  return (
+    <Routes>
+      <Route path="/" element={<Landing />} />
+      <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
+      
+      <Route path="/" element={<Layout />}>
+        {/* Protected routes */}
+        <Route path="/dashboard" element={<ProtectedRoute element={<Dashboard />} />} />
+        <Route path="/story/:id" element={<ProtectedRoute element={<StoryView />} />} />
+        <Route path="/leaderboard" element={<ProtectedRoute element={<Leaderboard />} />} />
+        <Route path="/subscription/success" element={<ProtectedRoute element={<SubscriptionSuccess />} />} />
+        <Route path="/subscription/cancel" element={<ProtectedRoute element={<SubscriptionCancel />} />} />
+        
+        {/* Admin routes */}
+        <Route path="/admin" element={<AdminRoute element={<AdminDashboard />} />} />
+        <Route path="/admin/story/create" element={<AdminRoute element={<AdminStoryCreate />} />} />
+        <Route path="/admin/story/:id/edit" element={<AdminRoute element={<AdminStoryEdit />} />} />
+      </Route>
+      
+      <Route path="*" element={<NotFound />} />
+    </Routes>
+  );
+}
+
+export default App;
+
+// client/src/contexts/AuthContext.jsx
+import { createContext, useContext, useState, useEffect } from 'react';
+import axios from 'axios';
+import { API_URL } from '../config';
+
+const AuthContext = createContext();
+
+export const useAuth = () => useContext(AuthContext);
+
+export const AuthProvider = ({ children }) => {
+  const [currentUser, setCurrentUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  
+  // Set up axios default headers
+  const setAuthToken = (token) => {
+    if (token) {
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    } else {
+      delete axios.defaults.headers.common['Authorization'];
+    }
+  };
+  
+  // Check if user is logged in on app load
+  useEffect(() => {
+    const checkLoggedIn = async () => {
+      setLoading(true);
+      try {
+        const token = localStorage.getItem('token');
+        
+        if (token) {
+          setAuthToken(token);
+          const { data } = await axios.get(`${API_URL}/auth/me`);
+          setCurrentUser(data);
+        }
+      } catch (error) {
+        console.error('Auth error:', error);
+        localStorage.removeItem('token');
+        setAuthToken(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    checkLoggedIn();
+  }, []);
+  
+  // Login function
+  const login = async (email, password) => {
+    const { data } = await axios.post(`${API_URL}/auth/login`, { email, password });
+    setCurrentUser(data);
+    localStorage.setItem('token', data.token);
+    setAuthToken(data.token);
+    return data;
+  };
+  
+  // Register function
+  const register = async (username, email, password) => {
+    const { data } = await axios.post(`${API_URL}/auth/register`, { 
+      username, email, password 
+    });
+    setCurrentUser(data);
+    localStorage.setItem('token', data.token);
+    setAuthToken(data.token);
+    return data;
+  };
+  
+  // Logout function
+  const logout = () => {
+    setCurrentUser(null);
+    localStorage.removeItem('token');
+    setAuthToken(null);
+  };
+  
+  // Check subscription status
+  const checkSubscription = async () => {
+    try {
+      const { data } = await axios.get(`${API_URL}/payments/subscription-status`);
+      
+      // Update user premium status
+      setCurrentUser(prev => ({
+        ...prev,
+        isPremium: data.isPremium
+      }));
+      
+      return data.isPremium;
+    } catch (error) {
+      console.error('Error checking subscription:', error);
+      return false;
+    }
+  };
+  
+  // Update user XP
+  const updateUserXp = (xpAmount) => {
+    if (currentUser) {
+      setCurrentUser(prev => ({
+        ...prev,
+        xp: (prev.xp || 0) + xpAmount
+      }));
+    }
+  };
+  
+  const value = {
+    currentUser,
+    loading,
+    login,
+    register,
+    logout,
+    checkSubscription,
+    updateUserXp
+  };
+  
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+    </AuthContext.Provider>
+  );
+};
+
+// client/src/components/Layout.jsx
+import { Outlet } from 'react-router-dom';
+import Navbar from './Navbar';
+import Footer from './Footer';
+
+const Layout = () => {
+  return (
+    <div className="flex flex-col min-h-screen">
+      <Navbar />
+      <main className="flex-grow container mx-auto px-4 py-8">
+        <Outlet />
+      </main>
+      <Footer />
+    </div>
+  );
+};
+
+export default Layout;
+
+// client/src/components/Navbar.jsx
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import { FaBars, FaTimes, FaUser, FaCrown, FaTrophy, FaSignOutAlt } from 'react-icons/fa';
+
+const Navbar = () => {
+  const { currentUser, logout } = useAuth();
+  const [isOpen, setIsOpen] = useState(false);
+  const navigate = useNavigate();
+  
+  const handleLogout = () => {
+    logout();
+    navigate('/');
+  };
+  
+  return (
+    <nav className="bg-white shadow-md">
+      <div className="container mx-auto px-4">
+        <div className="flex justify-between items-center py-4">
+          {/* Logo */}
+          <Link to="/" className="text-2xl font-bold text-indigo-600 flex items-center">
+            <span className="mr-2">🇪🇸</span>
+            SpanishChat
+          </Link>
+          
+          {/* Desktop Menu */}
+          <div className="hidden md:flex items-center space-x-6">
+            {currentUser ? (
+              <>
+                <Link to="/dashboard" className="text-gray-700 hover:text-indigo-600">
+                  Stories
+                </Link>
+                <Link to="/leaderboard" className="text-gray-700 hover:text-indigo-600">
+                  Leaderboard
+                </Link>
+                {currentUser.role === 'admin' && (
+                  <Link to="/admin" className="text-gray-700 hover:text-indigo-600">
+                    Admin
+                  </Link>
+                )}
+                <div className="relative group">
+                  <button className="flex items-center text-gray-700 hover:text-indigo-600">
+                    <FaUser className="mr-2" />
+                    {currentUser.username}
+                    {currentUser.isPremium && <FaCrown className="ml-2 text-yellow-500" />}
+                  </button>
+                  <div className="absolute right-0 w-48 bg-white shadow-lg rounded-lg mt-2 py-2 z-10 hidden group-hover:block">
+                    <div className="px-4 py-2 border-b">
+                      <p className="text-sm text-gray-500">XP: {currentUser.xp || 0}</p>
+                    </div>
+                    <button 
+                      onClick={handleLogout}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50 flex items-center"
+                    >
+                      <FaSignOutAlt className="mr-2" /> Logout
+                    </button>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <Link to="/login" className="text-gray-700 hover:text-indigo-600">
+                  Login
+                </Link>
+                <Link to="/register" className="btn btn-primary">
+                  Sign Up
+                </Link>
+              </>
+            )}
+          </div>
+          
+          {/* Mobile menu button */}
+          <div className="md:hidden">
+            <button
+              onClick={() => setIsOpen(!isOpen)}
+              className="text-gray-500 hover:text-indigo-600 focus:outline-none"
+            >
+              {isOpen ? <FaTimes size={24} /> : <FaBars size={24} />}
+            </button>
+          </div>
+        </div>
+      </div>
+      
+      {/* Mobile Menu */}
+      {isOpen && (
+        <div className="md:hidden bg-white px-4 py-2 shadow-inner">
+          {currentUser ? (
+            <div className="flex flex-col space-y-3 pb-4">
+              <div className="flex items-center space-x-2 py-2 border-b border-gray-200">
+                <FaUser />
+                <span>{currentUser.username}</span>
+                {currentUser.isPremium && <FaCrown className="text-yellow-500" />}
+              </div>
+              <div className="flex items-center space-x-2">
+                <FaTrophy className="text-yellow-600" />
+                <span>XP: {currentUser.xp || 0}</span>
+              </div>
+              <Link 
+                to="/dashboard" 
+                className="block py-2 text-gray-700 hover:text-indigo-600"
+                onClick={() => setIsOpen(false)}
+              >
+                Stories
+              </Link>
+              <Link 
+                to="/leaderboard" 
+                className="block py-2 text-gray-700 hover:text-indigo-600"
+                onClick={() => setIsOpen(false)}
+              >
+                Leaderboard
+              </Link>
+              {currentUser.role === 'admin' && (
+                <Link 
+                  to="/admin" 
+                  className="block py-2 text-gray-700 hover:text-indigo-600"
+                  onClick={() => setIsOpen(false)}
+                >
+                  Admin
+                </Link>
+              )}
+              <button 
+                onClick={handleLogout}
+                className="block py-2 text-left text-gray-700 hover:text-red-600"
+              >
+                Logout
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-col space-y-3 py-4">
+              <Link 
+                to="/login" 
+                className="block py-2 text-gray-700 hover:text-indigo-600"
+                onClick={() => setIsOpen(false)}
+              >
+                Login
+              </Link>
+              <Link 
+                to="/register" 
+                className="btn btn-primary text-center"
+                onClick={() => setIsOpen(false)}
+              >
+                Sign Up
+              </Link>
+            </div>
+          )}
+        </div>
+      )}
+    </nav>
+  );
+};
+
+export default Navbar;
+
+// client/src/components/Footer.jsx
+import { Link } from 'react-router-dom';
+import { FaGithub, FaTwitter, FaInstagram } from 'react-icons/fa';
+
+const Footer = () => {
+  const currentYear = new Date().getFullYear();
+  
+  return (
+    <footer className="bg-gray-800 text-white py-8">
+      <div className="container mx-auto px-4">
+        <div className="flex flex-col md:flex-row justify-between items-center">
+          <div className="mb-4 md:mb-0">
+            <Link to="/" className="text-xl font-bold flex items-center">
+              <span className="mr-2">🇪🇸</span>
+              SpanishChat
+            </Link>
+            <p className="text-gray-400 text-sm mt-2">
+              Learn Spanish through interactive stories
+            </p>
+          </div>
+          
+          <div className="flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-8">
+            <Link to="/dashboard" className="text-gray-300 hover:text-white">
+              Stories
+            </Link>
+            <Link to="/leaderboard" className="text-gray-300 hover:text-white">
+              Leaderboard
+            </Link>
+            <a href="#" className="text-gray-300 hover:text-white">
+              About
+            </a>
+            <a href="#" className="text-gray-300 hover:text-white">
+              Contact
+            </a>
+          </div>
+          
+          <div className="mt-4 md:mt-0">
+            <div className="flex space-x-4">
+              <a href="#" className="text-gray-400 hover:text-white">
+                <FaTwitter size={20} />
+              </a>
+              <a href="#" className="text-gray-400 hover:text-white">
+                <FaInstagram size={20} />
+              </a>
+              <a href="#" className="text-gray-400 hover:text-white">
+                <FaGithub size={20} />
+              </a>
+            </div>
+          </div>
+        </div>
+        
+        <div className="mt-8 pt-6 border-t border-gray-700 text-sm text-center text-gray-400">
+          &copy; {currentYear} SpanishChat. All rights reserved.
+        </div>
+      </div>
+    </footer>
+  );
+};
+
+export default Footer;
+
+// client/src/components/ProtectedRoute.jsx
+import { Navigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+
+const ProtectedRoute = ({ element }) => {
+  const { currentUser, loading } = useAuth();
+  
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-indigo-600"></div>
+      </div>
+    );
+  }
+  
+  return currentUser ? element : <Navigate to="/login" />;
+};
+
+export default ProtectedRoute;
+
+// client/src/components/AdminRoute.jsx
+import { Navigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+
+const AdminRoute = ({ element }) => {
+  const { currentUser, loading } = useAuth();
+  
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-indigo-600"></div>
+      </div>
+    );
+  }
+  
+  return currentUser && currentUser.role === 'admin' ? element : <Navigate to="/dashboard" />;
+};
+
+export default AdminRoute;
+
+// client/src/components/StoryCard.jsx
+import { Link } from 'react-router-dom';
+import { FaStar, FaLock } from 'react-icons/fa';
+
+const getLevelColor = (level) => {
+  switch (level) {
+    case 'beginner':
+      return 'bg-green-100 text-green-800';
+    case 'intermediate':
+      return 'bg-yellow-100 text-yellow-800';
+    case 'advanced':
+      return 'bg-red-100 text-red-800';
+    default:
+      return 'bg-gray-100 text-gray-800';
+  }
+};
+
+const StoryCard = ({ story }) => {
+  const levelClass = getLevelColor(story.level);
+  
+  return (
+    <div className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition duration-300">
+      <div className="relative h-48 bg-indigo-100">
+        {story.imageUrl ? (
+          <img 
+            src={story.imageUrl} 
+            alt={story.title} 
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="flex items-center justify-center h-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white text-4xl font-bold">
+            {story.title.charAt(0)}
+          </div>
+        )}
+        
+        {story.isPremium && (
+          <div className="absolute top-2 right-2 bg-yellow-500 text-white p-1 rounded-md flex items-center">
+            <FaLock className="mr-1" size={12} />
+            <span className="text-xs font-medium">Premium</span>
+          </div>
+        )}
+      </div>
+      
+      <div className="p-4">
+        <div className="flex justify-between items-start mb-2">
+          <h3 className="font-bold text-lg text-gray-900 truncate">{story.title}</h3>
+          <span className={`px-2 py-1 rounded-full text-xs font-medium ${levelClass}`}>
+            {story.level.charAt(0).toUpperCase() + story.level.slice(1)}
+          </span>
+        </div>
+        
+        <p className="text-gray-600 text-sm mb-3 line-clamp-2">{story.description}</p>
+        
+        <div className="flex items-center justify-between">
+          <div className="flex items-center">
+            <FaStar className="text-yellow-400 mr-1" />
+            <span className="text-gray-700 text-sm">{story.totalXp} XP</span>
+          </div>
+          
+          <Link 
+            to={`/story/${story.id}`}
+            className="btn btn-primary py-1 px-4 text-sm"
+          >
+            Start Reading
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default StoryCard;
+
+// client/src/components/MessageBubble.jsx
+import { useState } from 'react';
+
+const MessageBubble = ({ message, onWordClick }) => {
+  const processText = (text, translations) => {
+    if (!translations || Object.keys(translations).length === 0) {
+      return <span>{text}</span>;
+    }
+    
+    const words = text.split(' ');
+    
+    return words.map((word, index) => {
+      // Clean the word for lookup (remove punctuation)
+      const cleanWord = word.toLowerCase().replace(/[.,?!;:'"()]/g, '');
+      
+      // Check if this word has a translation
+      if (translations[cleanWord]) {
+        return (
+          <span key={index}>
+            <span 
+              className="highlighted-word"
+              onClick={() => onWordClick(cleanWord, translations[cleanWord])}
+            >
+              {word}
+            </span>
+            {' '}
+          </span>
+        );
+      }
+      
+      return <span key={index}>{word} </span>;
+    });
+  };
+  
+  return (
+    <div className={`text-bubble ${message.isSender ? 'text-bubble-sender' : 'text-bubble-receiver'}`}>
+      {processText(message.text, message.translations)}
+    </div>
+  );
+};
+
+export default MessageBubble;
+
+// client/src/components/QuizComponent.jsx
+import { useState } from 'react';
+
+const QuizComponent = ({ quiz, onAnswer }) => {
+  const [selectedOption, setSelectedOption] = useState(null);
+  const [answered, setAnswered] = useState(false);
+  
+  const handleOptionSelect = (option) => {
+    if (answered) return;
+    setSelectedOption(option);
+  };
+  
+  const handleSubmit = () => {
+    if (!selectedOption || answered) return;
+    
+    const isCorrect = selectedOption === quiz.correctOption;
+    setAnswered(true);
+    onAnswer(isCorrect);
+  };
+  
+  const getOptionClass = (option) => {
+    if (!answered) {
+      return selectedOption === option 
+        ? 'bg-indigo-100 border-indigo-500'
+        : 'bg-white hover:bg-gray-50';
+    }
+    
+    if (option === quiz.correctOption) {
+      return 'bg-green-100 border-green-500';
+    }
+    
+    if (selectedOption === option && option !== quiz.correctOption) {
+      return 'bg-red-100 border-red-500';
+    }
+    
+    return 'bg-white opacity-60';
+  };
+  
+  // Render quiz based on type
+  if (quiz.quizType === 'multiple-choice') {
+    return (
+      <div className="bg-white rounded-lg shadow-md p-4 my-4">
+        <h3 className="font-medium text-gray-800 mb-3">{quiz.question}</h3>
+        
+        <div className="space-y-2">
+          {quiz.options.map((option, index) => (
+            <button
+              key={index}
+              className={`w-full text-left p-3 border rounded-md transition ${getOptionClass(option)}`}
+              onClick={() => handleOptionSelect(option)}
+              disabled={answered}
+            >
+              {option}
+            </button>
+          ))}
+        </div>
+        
+        <div className="mt-4 flex justify-end">
+          <button
+            className="btn btn-primary"
+            onClick={handleSubmit}
+            disabled={!selectedOption || answered}
+          >
+            {answered ? 'Continue' : 'Check Answer'}
+          </button>
+        </div>
+        
+        {answered && (
+          <div className={`mt-3 p-3 rounded-md ${selectedOption === quiz.correctOption ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}>
+            {selectedOption === quiz.correctOption 
+              ? '¡Correcto! Great job!'
+              : `Incorrect. The correct answer is: ${quiz.correctOption}`
+            }
+          </div>
+        )}
+      </div>
+    );
+  }
+  
+  return null;
+};
+
+export default QuizComponent;
+
+// client/src/components/PremiumModal.jsx
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import { API_URL } from '../config';
+import { FaCrown, FaTimes } from 'react-icons/fa';
+
+const PremiumModal = ({ isOpen, onClose }) => {
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
+  
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'auto';
+    }
+    
+    return () => {
+      document.body.style.overflow = 'auto';
+    };
+  }, [isOpen]);
+  
+  const handleSubscribe = async () => {
+    try {
+      setLoading(true);
+      const { data } = await axios.post(`${API_URL}/payments/create-checkout-session`, {
+        priceId: process.env.STRIPE_PRICE_ID || 'price_1234567890'
+      });
+      
+      // Redirect to Stripe Checkout
+      window.location.href = data.url;
+    } catch (error) {
+      console.error('Error creating checkout session:', error);
+      setLoading(false);
+    }
+  };
+  
+  if (!isOpen) return null;
+  
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-xl shadow-lg max-w-md w-full p-6 relative">
+        <button 
+          onClick={onClose} 
+          className="absolute top-4 right-4 text-gray-500 hover:text-gray-700"
+        >
+          <FaTimes size={20} />
+        </button>
+        
+        <div className="flex flex-col items-center mb-6">
+          <div className="bg-yellow-100 p-3 rounded-full">
+            <FaCrown className="text-yellow-500 text-3xl" />
+          </div>
+          <h2 className="text-2xl font-bold mt-4 text-center">Unlock Premium Content</h2>
+          <p className="text-gray-600 mt-2 text-center">
+            Subscribe to continue reading and unlock all stories!
+          </p>
+        </div>
+        
+        <div className="bg-indigo-50 p-4 rounded-lg mb-6">
+          <h3 className="font-medium text-indigo-800 mb-2">Premium Benefits:</h3>
+          <ul className="space-y-2">
+            <li className="flex items-start">
+              <span className="text-indigo-600 mr-2">✓</span>
+              <span>Access to all premium stories</span>
+            </li>
+            <li className="flex items-start">
+              <span className="text-indigo-600 mr-2">✓</span>
+              <span>Unlimited reading with no restrictions</span>
+            </li>
+            <li className="flex items-start">
+              <span className="text-indigo-600 mr-2">✓</span>
+              <span>New stories added weekly</span>
+            </li>
+            <li className="flex items-start">
+              <span className="text-indigo-600 mr-2">✓</span>
+              <span>Premium badge on your profile</span>
+            </li>
+          </ul>
+        </div>
+        
+        <div className="text-center mb-6">
+          <div className="text-3xl font-bold text-indigo-700">£12.99<span className="text-lg text-gray-600 font-normal">/month</span></div>
+          <p className="text-gray-500 text-sm">Cancel anytime</p>
+        </div>
+        
+        <button 
+          onClick={handleSubscribe}
+          className="btn btn-primary w-full flex items-center justify-center"
+          disabled={loading}
+        >
+          {loading ? (
+            <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white"></div>
+          ) : (
+            <>
+              <FaCrown className="mr-2" /> Subscribe Now
+            </>
+          )}
+        </button>
+      </div>
+    </div>
+  );
+};
+
+export default PremiumModal;
+
+// client/src/components/WordTooltip.jsx
+const WordTooltip = ({ word, translation, position }) => {
+  return (
+    <div 
+      className="tooltip"
+      style={{
+        top: `${position.y + 20}px`,
+        left: `${position.x}px`,
+      }}
+    >
+      <div className="font-bold">{word}</div>
+      <div>{translation}</div>
+    </div>
+  );
+};
+
+export default WordTooltip;
+
+// client/src/pages/Landing.jsx
+import { Link } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import { FaArrowRight, FaComments, FaStar, FaTrophy } from 'react-icons/fa';
+
+const Landing = () => {
+  const { currentUser } = useAuth();
+  
+  return (
+    <div className="min-h-screen">
+      {/* Hero Section */}
+      <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
+        <div className="container mx-auto px-4 py-20">
+          <div className="flex flex-col md:flex-row items-center">
+            <div className="md:w-1/2 mb-10 md:mb-0">
+              <h1 className="text-4xl md:text-5xl font-bold mb-4">
+                Learn Spanish Through Interactive Conversations
+              </h1>
+              <p className="text-xl mb-8 text-indigo-100">
+                Master Spanish naturally with our interactive text-message style stories. 
+                Read, respond, and learn in a fun, engaging way!
+              </p>
+              
+              <div className="flex flex-col sm:flex-row gap-4">
+                {currentUser ? (
+                  <Link to="/dashboard" className="btn bg-white text-indigo-600 hover:bg-indigo-50 flex items-center justify-center">
+                    Go to Stories <FaArrowRight className="ml-2" />
+                  </Link>
+                ) : (
+                  <>
+                    <Link to="/register" className="btn bg-white text-indigo-600 hover:bg-indigo-50 flex items-center justify-center">
+                      Try Free <FaArrowRight className="ml-2" />
+                    </Link>
+                    <Link to="/login" className="btn bg-indigo-700 text-white hover:bg-indigo-800">
+                      Login
+                    </Link>
+                  </>
+                )}
+              </div>
+            </div>
+            
+            <div className="md:w-1/2 flex justify-center">
+              <div className="relative w-80 h-96 bg-white rounded-3xl shadow-xl p-4 overflow-hidden">
+                <div className="bg-gray-100 rounded-t-2xl p-2 flex items-center mb-2">
+                  <div className="w-10 h-10 rounded-full bg-indigo-500 flex items-center justify-center text-white font-bold">
+                    M
+                  </div>
+                  <div className="ml-2">
+                    <div className="font-bold text-gray-800">María</div>
+                    <div className="text-xs text-gray-500">Spanish Teacher</div>
+                  </div>
+                </div>
+                
+                <div className="overflow-y-auto h-72 py-2 px-1">
+                  <div className="text-bubble text-bubble-receiver mb-3">
+                    ¡Hola! Me llamo María. ¿Cómo te llamas?
+                  </div>
+                  
+                  <div className="text-bubble text-bubble-sender mb-3">
+                    Hola María. Me llamo Alex.
+                  </div>
+                  
+                  <div className="text-bubble text-bubble-receiver mb-3">
+                    ¡Mucho gusto, Alex! ¿De dónde eres?
+                  </div>
+                  
+                  <div className="text-bubble text-bubble-sender mb-3">
+                    Soy de Inglaterra, pero vivo en España.
+                  </div>
+                  
+                  <div className="text-bubble text-bubble-receiver mb-3">
+                    ¡Qué interesante! ¿Por qué estás aprendiendo español?
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      {/* How It Works Section */}
+      <div className="py-16 bg-gray-50">
+        <div className="container mx-auto px-4">
+          <h2 className="text-3xl font-bold text-center mb-12">How SpanishChat Works</h2>
+          
+          <div className="grid md:grid-cols-3 gap-8">
+            <div className="bg-white p-6 rounded-xl shadow-md flex flex-col items-center text-center">
+              <div className="bg-indigo-100 p-4 rounded-full mb-4">
+                <FaComments className="text-indigo-600 text-3xl" />
+              </div>
+              <h3 className="text-xl font-bold mb-2">Interactive Stories</h3>
+              <p className="text-gray-600">
+                Read authentic conversations in Spanish and interact with the characters in a text-message style format.
+              </p>
+            </div>
+            
+            <div className="bg-white p-6 rounded-xl shadow-md flex flex-col items-center text-center">
+              <div className="bg-indigo-100 p-4 rounded-full mb-4">
+                <FaStar className="text-indigo-600 text-3xl" />
+              </div>
+              <h3 className="text-xl font-bold mb-2">Learn Naturally</h3>
+              <p className="text-gray-600">
+                Hover over words to see translations, answer questions, and complete quizzes to reinforce your learning.
+              </p>
+            </div>
+            
+            <div className="bg-white p-6 rounded-xl shadow-md flex flex-col items-center text-center">
+              <div className="bg-indigo-100 p-4 rounded-full mb-4">
+                <FaTrophy className="text-indigo-600 text-3xl" />
+              </div>
+              <h3 className="text-xl font-bold mb-2">Track Progress</h3>
+              <p className="text-gray-600">
+                Earn XP for each message and correct answer. Compete with others on the leaderboard.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      {/* Testimonials Section */}
+      <div className="py-16 bg-white">
+        <div className="container mx-auto px-4">
+          <h2 className="text-3xl font-bold text-center mb-12">What Our Users Say</h2>
+          
+          <div className="grid md:grid-cols-3 gap-8">
+            <div className="bg-gray-50 p-6 rounded-xl">
+              <div className="flex items-center mb-4">
+                <div className="w-12 h-12 rounded-full bg-indigo-200 flex items-center justify-center text-indigo-600 font-bold">
+                  S
+                </div>
+                <div className="ml-3">
+                  <div className="font-bold">Sarah K.</div>
+                  <div className="text-sm text-gray-500">Beginner Spanish Learner</div>
+                </div>
+              </div>
+              <p className="text-gray-700">
+                "This app makes learning Spanish so fun! The conversation format feels natural and I love being able to see translations instantly."
+              </p>
+            </div>
+            
+            <div className="bg-gray-50 p-6 rounded-xl">
+              <div className="flex items-center mb-4">
+                <div className="w-12 h-12 rounded-full bg-indigo-200 flex items-center justify-center text-indigo-600 font-bold">
+                  J
+                </div>
+                <div className="ml-3">
+                  <div className="font-bold">James T.</div>
+                  <div className="text-sm text-gray-500">Intermediate Spanish Learner</div>
+                </div>
+              </div>
+              <p className="text-gray-700">
+                "The interactive stories have helped me improve my comprehension tremendously. I've learned so many new phrases through real-life scenarios."
+              </p>
+            </div>
+            
+            <div className="bg-gray-50 p-6 rounded-xl">
+              <div className="flex items-center mb-4">
+                <div className="w-12 h-12 rounded-full bg-indigo-200 flex items-center justify-center text-indigo-600 font-bold">
+                  M
+                </div>
+                <div className="ml-3">
+                  <div className="font-bold">Maria L.</div>
+                  <div className="text-sm text-gray-500">Advanced Spanish Learner</div>
+                </div>
+              </div>
+              <p className="text-gray-700">
+                "Even as an advanced learner, I find value in these stories. The variety of topics and vocabulary keeps me engaged and learning new things."
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      {/* CTA Section */}
+      <div className="bg-indigo-600 text-white py-16">
+        <div className="container mx-auto px-4 text-center">
+          <h2 className="text-3xl font-bold mb-4">Start Learning Spanish Today!</h2>
+          <p className="text-xl mb-8 max-w-2xl mx-auto">
+            Join thousands of learners who are improving their Spanish with our interactive conversation-based approach.
+          </p>
+          
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            {currentUser ? (
+              <Link to="/dashboard" className="btn bg-white text-indigo-600 hover:bg-indigo-50 flex items-center justify-center">
+                Go to Stories <FaArrowRight className="ml-2" />
+              </Link>
+            ) : (
+              <>
+                <Link to="/register" className="btn bg-white text-indigo-600 hover:bg-indigo-50 flex items-center justify-center">
+                  Try Free <FaArrowRight className="ml-2" />
+                </Link>
+                <Link to="/login" className="btn bg-indigo-800 text-white hover:bg-indigo-900">
+                  Login
+                </Link>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Landing;
+
+// client/src/pages/Login.jsx
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import { toast } from 'react-toastify';
+
+const Login = () => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const { login } = useAuth();
+  const navigate = useNavigate();
+  
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (!email || !password) {
+      toast.error('Please fill in all fields');
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      await login(email, password);
+      navigate('/dashboard');
+      toast.success('Logged in successfully!');
+    } catch (error) {
+      console.error('Login error:', error);
+      toast.error(error.response?.data?.message || 'Failed to login. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-xl shadow-md">
+        <div className="text-center">
+          <Link to="/" className="text-3xl font-bold text-indigo-600 flex items-center justify-center">
+            <span className="mr-2">🇪🇸</span>
+            SpanishChat
+          </Link>
+          <h2 className="mt-6 text-2xl font-bold text-gray-900">Sign in to your account</h2>
+        </div>
+        
+        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+          <div className="space-y-4">
+            <div>
+              <label htmlFor="email" className="form-label">
+                Email address
+              </label>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                autoComplete="email"
+                required
+                className="form-input"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </div>
+            
+            <div>
+              <label htmlFor="password" className="form-label">
+                Password
+              </label>
+              <input
+                id="password"
+                name="password"
+                type="password"
+                autoComplete="current-password"
+                required
+                className="form-input"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </div>
+          </div>
+          
+          <div className="flex items-center justify-end">
+            <div className="text-sm">
+              <a href="#" className="font-medium text-indigo-600 hover:text-indigo-500">
+                Forgot your password?
+              </a>
+            </div>
+          </div>
+          
+          <button
+            type="submit"
+            className="btn btn-primary w-full flex justify-center"
+            disabled={loading}
+          >
+            {loading ? (
+              <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white"></div>
+            ) : (
+              'Sign in'
+            )}
+          </button>
+          
+          <div className="text-center mt-4">
+            <p className="text-sm text-gray-600">
+              Don't have an account?{' '}
+              <Link to="/register" className="font-medium text-indigo-600 hover:text-indigo-500">
+                Sign up
+              </Link>
+            </p>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+export default Login;
+
+// client/src/pages/Register.jsx
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import { toast } from 'react-toastify';
+
+const Register = () => {
+  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const { register } = useAuth();
+  const navigate = useNavigate();
+  
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (!username || !email || !password || !confirmPassword) {
+      toast.error('Please fill in all fields');
+      return;
+    }
+    
+    if (password !== confirmPassword) {
+      toast.error('Passwords do not match');
+      return;
+    }
+    
+    if (password.length < 6) {
+      toast.error('Password must be at least 6 characters');
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      await register(username, email, password);
+      navigate('/dashboard');
+      toast.success('Account created successfully!');
+    } catch (error) {
+      console.error('Registration error:', error);
+      toast.error(error.response?.data?.message || 'Failed to register. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-xl shadow-md">
+        <div className="text-center">
+          <Link to="/" className="text-3xl font-bold text-indigo-600 flex items-center justify-center">
+            <span className="mr-2">🇪🇸</span>
+            SpanishChat
+          </Link>
+          <h2 className="mt-6 text-2xl font-bold text-gray-900">Create your account</h2>
+        </div>
+        
+        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+          <div className="space-y-4">
+            <div>
+              <label htmlFor="username" className="form-label">
+                Username
+              </label>
+              <input
+                id="username"
+                name="username"
+                type="text"
+                autoComplete="username"
+                required
+                className="form-input"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+              />
+            </div>
+            
+            <div>
+              <label htmlFor="email" className="form-label">
+                Email address
+              </label>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                autoComplete="email"
+                required
+                className="form-input"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </div>
+            
+            <div>
+              <label htmlFor="password" className="form-label">
+                Password
+              </label>
+              <input
+                id="password"
+                name="password"
+                type="password"
+                autoComplete="new-password"
+                required
+                className="form-input"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </div>
+            
+            <div>
+              <label htmlFor="confirmPassword" className="form-label">
+                Confirm Password
+              </label>
+              <input
+                id="confirmPassword"
+                name="confirmPassword"
+                type="password"
+                autoComplete="new-password"
+                required
+                className="form-input"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+              />
+            </div>
+          </div>
+          
+          <button
+            type="submit"
+            className="btn btn-primary w-full flex justify-center"
+            disabled={loading}
+          >
+            {loading ? (
+              <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white"></div>
+            ) : (
+              'Sign up'
+            )}
+          </button>
+          
+          <div className="text-center mt-4">
+            <p className="text-sm text-gray-600">
+              Already have an account?{' '}
+              <Link to="/login" className="font-medium text-indigo-600 hover:text-indigo-500">
+                Sign in
+              </Link>
+            </p>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+export default Register;
+
+// client/src/pages/Dashboard.jsx
+import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import axios from 'axios';
+import { toast } from 'react-toastify';
+import { API_URL } from '../config';
+import StoryCard from '../components/StoryCard';
+import { FaSearch, FaFilter } from 'react-icons/fa';
+
+const Dashboard = () => {
+  const [stories, setStories] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [level, setLevel] = useState('');
+  const [tag, setTag] = useState('');
+  const [availableTags, setAvailableTags] = useState([]);
+  
+  useEffect(() => {
+    fetchStories();
+  }, [level, tag]);
+  
+  const fetchStories = async () => {
+    try {
+      setLoading(true);
+      const params = {};
+      
+      if (level) params.level = level;
+      if (tag) params.tag = tag;
+      
+      const { data } = await axios.get(`${API_URL}/stories`, { params });
+      setStories(data);
+      
+      // Extract unique tags from all stories
+      const tags = new Set();
+      data.forEach(story => {
+        if (story.tags && Array.isArray(story.tags)) {
+          story.tags.forEach(tag => tags.add(tag));
+        }
+      });
+      setAvailableTags(Array.from(tags));
+    } catch (error) {
+      console.error('Error fetching stories:', error);
+      toast.error('Failed to load stories');
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const filteredStories = stories.filter(story => 
+    story.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    story.description.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+  
+  return (
+    <div className="container mx-auto px-4 py-8">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
+        <h1 className="text-3xl font-bold text-gray-900 mb-4 md:mb-0">Spanish Stories</h1>
+        
+        <div className="w-full md:w-auto flex flex-col sm:flex-row gap-4">
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Search stories..."
+              className="form-input pl-10 pr-4 py-2 w-full md:w-64"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+            <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+          </div>
+          
+          <div className="flex gap-2">
+            <select
+              className="form-input py-2"
+              value={level}
+              onChange={(e) => setLevel(e.target.value)}
+            >
+              <option value="">All Levels</option>
+              <option value="beginner">Beginner</option>
+              <option value="intermediate">Intermediate</option>
+              <option value="advanced">Advanced</option>
+            </select>
+            
+            <select
+              className="form-input py-2"
+              value={tag}
+              onChange={(e) => setTag(e.target.value)}
+            >
+              <option value="">All Tags</option>
+              {availableTags.map((tag, index) => (
+                <option key={index} value={tag}>{tag}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </div>
+      
+      {loading ? (
+        <div className="flex justify-center py-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-600"></div>
+        </div>
+      ) : filteredStories.length === 0 ? (
+        <div className="bg-white rounded-lg shadow-md p-8 text-center">
+          <h2 className="text-xl font-medium text-gray-700 mb-2">No stories found</h2>
+          <p className="text-gray-500 mb-4">
+            Try adjusting your search or filters to find more stories.
+          </p>
+          <button 
+            onClick={() => {
+              setSearchTerm('');
+              setLevel('');
+              setTag('');
+            }}
+            className="btn btn-primary"
+          >
+            Clear Filters
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredStories.map(story => (
+            <StoryCard key={story.id} story={story} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default Dashboard;
+
+// client/src/pages/StoryView.jsx
+import { useState, useEffect, useRef } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import { toast } from 'react-toastify';
+import { API_URL } from '../config';
+import { useAuth } from '../contexts/AuthContext';
+import MessageBubble from '../components/MessageBubble';
+import QuizComponent from '../components/QuizComponent';
+import PremiumModal from '../components/PremiumModal';
+import WordTooltip from '../components/WordTooltip';
+import { FaArrowLeft, FaArrowRight, FaSpinner } from 'react-icons/fa';
+
+const StoryView = () => {
+  const { id } = useParams();
+  const { currentUser, updateUserXp } = useAuth();
+  const [story, setStory] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
+  const [displayedMessages, setDisplayedMessages] = useState([]);
+  const [userProgress, setUserProgress] = useState(null);
+  const [showPremiumModal, setShowPremiumModal] = useState(false);
+  const [selectedWord, setSelectedWord] = useState(null);
+  const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
+  const messagesContainerRef = useRef(null);
+  const navigate = useNavigate();
+  
+  useEffect(() => {
+    fetchStory();
+  }, [id]);
+  
+  useEffect(() => {
+    // Scroll to bottom when new messages are displayed
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+    }
+  }, [displayedMessages]);
+  
+  const fetchStory = async () => {
+    try {
+      setLoading(true);
+      const { data } = await axios.get(`${API_URL}/stories/${id}`);
+      setStory(data.story);
+      
+      if (data.userProgress) {
+        setUserProgress(data.userProgress);
+        setCurrentMessageIndex(data.userProgress.lastMessageIndex);
+        
+        // Display messages up to the last viewed message
+        const messagesToShow = data.story.messages
+          .filter(msg => msg.order <= data.userProgress.lastMessageIndex)
+          .map(msg => ({
+            ...msg,
+            isSender: msg.order % 2 === 1 // Alternate sender/receiver for simplicity
+          }));
+        
+        setDisplayedMessages(messagesToShow);
+      } else {
+        setDisplayedMessages([]);
+      }
+    } catch (error) {
+      console.error('Error fetching story:', error);
+      toast.error('Failed to load story');
+      navigate('/dashboard');
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const showNextMessage = async () => {
+    if (!story || !story.messages) return;
+    
+    // If we've reached the limit for non-premium users, show the modal
+    if (story.limitedAccess && currentMessageIndex >= story.messages.length - 1) {
+      setShowPremiumModal(true);
+      return;
+    }
+    
+    // If we're at the end of available messages
+    if (currentMessageIndex >= story.messages.length - 1) {
+      // Mark story as completed
+      try {
+        await axios.post(`${API_URL}/stories/${id}/progress`, {
+          messageIndex: currentMessageIndex,
+          isCompleted: true
+        });
+        
+        toast.success('Story completed! 🎉');
+        return;
+      } catch (error) {
+        console.error('Error updating progress:', error);
+      }
+    }
+    
+    // Show next message
+    const nextIndex = currentMessageIndex + 1;
+    const nextMessage = story.messages.find(msg => msg.order === nextIndex);
+    
+    if (nextMessage) {
+      // Add to displayed messages
+      setDisplayedMessages(prev => [
+        ...prev, 
+        { ...nextMessage, isSender: nextIndex % 2 === 1 }
+      ]);
+      
+      setCurrentMessageIndex(nextIndex);
+      
+      // Update progress in database
+      try {
+        const { data } = await axios.post(`${API_URL}/stories/${id}/progress`, {
+          messageIndex: nextIndex,
+          isCorrect: false,
+          isCompleted: nextIndex === story.messages.length - 1
+        });
+        
+        // Update user XP
+        if (data.xpEarned > 0) {
+          updateUserXp(data.xpEarned);
+          toast.info(`+${data.xpEarned} XP earned!`);
+        }
+        
+        setUserProgress(data.progress);
+      } catch (error) {
+        console.error('Error updating progress:', error);
+      }
+    }
+  };
+  
+  const handleQuizAnswer = async (isCorrect) => {
+    // Update progress in database with quiz result
+    try {
+      const { data } = await axios.post(`${API_URL}/stories/${id}/progress`, {
+        messageIndex: currentMessageIndex,
+        isCorrect,
+        isCompleted: currentMessageIndex === story.messages.length - 1
+      });
+      
+      // Update user XP
+      if (data.xpEarned > 0) {
+        updateUserXp(data.xpEarned);
+        toast.info(`+${data.xpEarned} XP earned!`);
+      }
+      
+      setUserProgress(data.progress);
+    } catch (error) {
+      console.error('Error updating quiz progress:', error);
+    }
+  };
+  
+  const handleWordClick = (word, translation, event) => {
+    // Get click position for tooltip
+    const rect = event.target.getBoundingClientRect();
+    
+    setSelectedWord({ word, translation });
+    setTooltipPosition({
+      x: rect.left,
+      y: rect.top
+    });
+  };
+  
+  // Hide tooltip when clicking elsewhere
+  useEffect(() => {
+    const handleClickOutside = () => {
+      setSelectedWord(null);
+    };
+    
+    document.addEventListener('click', handleClickOutside);
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+    };
+  }, []);
+  
+  if (loading) {
+    return (
+      <div className="flex justify-center py-12">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-600"></div>
+      </div>
+    );
+  }
+  
+  if (!story) {
+    return (
+      <div className="text-center py-12">
+        <h2 className="text-2xl font-bold text-gray-800 mb-4">Story not found</h2>
+        <button 
+          onClick={() => navigate('/dashboard')}
+          className="btn btn-primary"
+        >
+          Back to Dashboard
+        </button>
+      </div>
+    );
+  }
+  
+  // Get current message
+  const currentMessage = story.messages.find(msg => msg.order === currentMessageIndex);
+  
+  // Check if current message has a quiz
+  const hasQuiz = currentMessage && currentMessage.quizType !== 'none';
+  
+  return (
+    <div className="max-w-3xl mx-auto">
+      {/* Story header */}
+      <div className="flex items-center mb-6">
+        <button 
+          onClick={() => navigate('/dashboard')}
+          className="mr-4 btn bg-white text-gray-700 hover:bg-gray-100 shadow-sm"
+        >
+          <FaArrowLeft className="mr-2" /> Back
+        </button>
+        
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">{story.title}</h1>
+          <div className="flex items-center mt-1">
+            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+              story.level === 'beginner' ? 'bg-green-100 text-green-800' :
+              story.level === 'intermediate' ? 'bg-yellow-100 text-yellow-800' :
+              'bg-red-100 text-red-800'
+            }`}>
+              {story.level.charAt(0).toUpperCase() + story.level.slice(1)}
+            </span>
+            
+            {story.tags && story.tags.map((tag, index) => (
+              <span key={index} className="ml-2 px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">
+                {tag}
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+      
+      {/* Messages container */}
+      <div className="bg-white rounded-t-xl shadow-md p-4 h-96 overflow-y-auto" ref={messagesContainerRef}>
+        {displayedMessages.length === 0 ? (
+          <div className="h-full flex flex-col items-center justify-center text-gray-500">
+            <p className="mb-4">Start the conversation by clicking the button below</p>
+            <FaArrowDown size={24} />
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {displayedMessages.map((message, index) => (
+              <MessageBubble 
+                key={index} 
+                message={message} 
+                onWordClick={(word, translation, e) => handleWordClick(word, translation, e)}
+              />
+            ))}
+          </div>
+        )}
+        
+        {/* Word tooltip */}
+        {selectedWord && (
+          <WordTooltip 
+            word={selectedWord.word}
+            translation={selectedWord.translation}
+            position={tooltipPosition}
+          />
+        )}
+      </div>
+      
+      {/* Quiz area */}
+      {hasQuiz && (
+        <QuizComponent 
+          quiz={{
+            quizType: currentMessage.quizType,
+            question: currentMessage.quizQuestion || "Choose the correct answer:",
+            options: currentMessage.options || [],
+            correctOption: currentMessage.correctOption
+          }}
+          onAnswer={handleQuizAnswer}
+        />
+      )}
+      
+      {/* Controls */}
+      <div className="bg-gray-100 rounded-b-xl shadow-md p-4 flex justify-between items-center">
+        <div className="text-sm text-gray-600">
+          {story.messages && (
+            <>
+              Message {currentMessageIndex + 1} of {story.messages.length}
+              {userProgress && (
+                <span className="ml-4">
+                  XP: {userProgress.xpEarned || 0}
+                </span>
+              )}
+            </>
+          )}
+        </div>
+        
+        <button
+          onClick={showNextMessage}
+          className="btn btn-primary flex items-center"
+          disabled={loading || (story.limitedAccess && currentMessageIndex >= story.messages.length - 1)}
+        >
+          {loading ? (
+            <FaSpinner className="animate-spin mr-2" />
+          ) : (
+            <>
+              Next <FaArrowRight className="ml-2" />
+            </>
+          )}
+        </button>
+      </div>
+      
+      {/* Premium modal */}
+      <PremiumModal 
+        isOpen={showPremiumModal} 
+        onClose={() => setShowPremiumModal(false)} 
+      />
+    </div>
+  );
+};
+
+export default StoryView;
+
+// client/src/pages/Leaderboard.jsx
+import { useState, useEffect } from 'react';
+import axios from 'axios';
+import { toast } from 'react-toastify';
+import { API_URL } from '../config';
+import { useAuth } from '../contexts/AuthContext';
+import { FaTrophy, FaMedal } from 'react-icons/fa';
+
+const Leaderboard = () => {
+  const [leaderboard, setLeaderboard] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [userRank, setUserRank] = useState(null);
+  const { currentUser } = useAuth();
+  
+  useEffect(() => {
+    fetchLeaderboard();
+  }, []);
+  
+  const fetchLeaderboard = async () => {
+    try {
+      setLoading(true);
+      const { data } = await axios.get(`${API_URL}/leaderboard`);
+      setLeaderboard(data.leaderboard);
+      setUserRank(data.currentUserRank);
+    } catch (error) {
+      console.error('Error fetching leaderboard:', error);
+      toast.error('Failed to load leaderboard data');
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const getRankStyles = (index) => {
+    switch (index) {
+      case 0:
+        return {
+          iconColor: 'text-yellow-500',
+          bgColor: 'bg-yellow-50',
+          borderColor: 'border-yellow-200',
+          icon: <FaTrophy className="text-yellow-500" />
+        };
+      case 1:
+        return {
+          iconColor: 'text-gray-400',
+          bgColor: 'bg-gray-50',
+          borderColor: 'border-gray-200',
+          icon: <FaMedal className="text-gray-400" />
+        };
+      case 2:
+        return {
+          iconColor: 'text-amber-700',
+          bgColor: 'bg-amber-50',
+          borderColor: 'border-amber-200',
+          icon: <FaMedal className="text-amber-700" />
+        };
+      default:
+        return {
+          iconColor: 'text-indigo-600',
+          bgColor: 'bg-white',
+          borderColor: 'border-gray-200',
+          icon: null
+        };
+    }
+  };
+  
+  return (
+    <div className="max-w-3xl mx-auto">
+      <h1 className="text-3xl font-bold text-gray-900 mb-6">Leaderboard</h1>
+      
+      {loading ? (
+        <div className="flex justify-center py-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-600"></div>
+        </div>
+      ) : (
+        <>
+          <div className="bg-white rounded-lg shadow-md overflow-hidden mb-6">
+            <div className="p-4 bg-indigo-600 text-white">
+              <h2 className="text-xl font-bold">Top Spanish Learners</h2>
+            </div>
+            
+            <ul>
+              {leaderboard.map((user, index) => {
+                const styles = getRankStyles(index);
+                const isCurrentUser = currentUser && user.id === currentUser.id;
+                
+                return (
+                  <li 
+                    key={user.id}
+                    className={`border-b last:border-b-0 ${styles.borderColor} ${styles.bgColor} ${isCurrentUser ? 'bg-indigo-50' : ''}`}
+                  >
+                    <div className="flex items-center p-4">
+                      <div className="flex items-center justify-center w-10 h-10 rounded-full bg-indigo-100 text-indigo-800 font-bold mr-4">
+                        {index + 1}
+                      </div>
+                      
+                      <div className="flex-grow">
+                        <div className="flex items-center">
+                          <span className="font-semibold text-gray-900">{user.username}</span>
+                          {styles.icon && <span className="ml-2">{styles.icon}</span>}
+                          {isCurrentUser && <span className="ml-2 text-xs bg-indigo-100 text-indigo-800 px-2 py-1 rounded-full">You</span>}
+                        </div>
+                      </div>
+                      
+                      <div className="text-right">
+                        <div className="font-bold text-indigo-600">{user.xp} XP</div>
+                      </div>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+          
+          {currentUser && userRank && userRank > leaderboard.length && (
+            <div className="bg-indigo-50 rounded-lg p-4 shadow-md">
+              <div className="flex items-center">
+                <div className="flex items-center justify-center w-10 h-10 rounded-full bg-indigo-100 text-indigo-800 font-bold mr-4">
+                  {userRank}
+                </div>
+                
+                <div className="flex-grow">
+                  <div className="flex items-center">
+                    <span className="font-semibold text-gray-900">{currentUser.username}</span>
+                    <span className="ml-2 text-xs bg-indigo-100 text-indigo-800 px-2 py-1 rounded-full">You</span>
+                  </div>
+                </div>
+                
+                <div className="text-right">
+                  <div className="font-bold text-indigo-600">{currentUser.xp || 0} XP</div>
+                </div>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+};
+
+export default Leaderboard;
+
+// client/src/pages/SubscriptionSuccess.jsx
+import { useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import { FaCheckCircle, FaCrown } from 'react-icons/fa';
+
+const SubscriptionSuccess = () => {
+  const { checkSubscription } = useAuth();
+  
+  useEffect(() => {
+    // Refresh user subscription status
+    checkSubscription();
+  }, []);
+  
+  return (
+    <div className="max-w-md mx-auto bg-white rounded-lg shadow-md p-8 text-center">
+      <div className="bg-green-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
+        <FaCheckCircle className="text-green-600 text-4xl" />
+      </div>
+      
+      <h1 className="text-2xl font-bold text-gray-900 mb-4">Subscription Successful!</h1>
+      
+      <p className="text-gray-600 mb-6">
+        Thank you for subscribing to SpanishChat Premium. You now have full access to all stories and features.
+      </p>
+      
+      <div className="bg-indigo-50 rounded-lg p-4 mb-6">
+        <div className="flex items-center justify-center text-indigo-700 mb-2">
+          <FaCrown className="mr-2" />
+          <span className="font-bold">Premium Benefits</span>
+        </div>
+        <ul className="text-left text-gray-700">
+          <li className="flex items-start mb-2">
+            <span className="text-green-600 mr-2">✓</span>
+            <span>Unlimited access to all premium stories</span>
+          </li>
+          <li className="flex items-start mb-2">
+            <span className="text-green-600 mr-2">✓</span>
+            <span>New stories added weekly</span>
+          </li>
+          <li className="flex items-start">
+            <span className="text-green-600 mr-2">✓</span>
+            <span>Premium badge on your profile</span>
+          </li>
+        </ul>
+      </div>
+      
+      <Link to="/dashboard" className="btn btn-primary">
+        Start Reading Now
+      </Link>
+    </div>
+  );
+};
+
+export default SubscriptionSuccess;
+
+// client/src/pages/SubscriptionCancel.jsx
+import { Link } from 'react-router-dom';
+import { FaTimesCircle } from 'react-icons/fa';
+
+const SubscriptionCancel = () => {
+  return (
+    <div className="max-w-md mx-auto bg-white rounded-lg shadow-md p-8 text-center">
+      <div className="bg-red-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
+        <FaTimesCircle className="text-red-600 text-4xl" />
+      </div>
+      
+      <h1 className="text-2xl font-bold text-gray-900 mb-4">Subscription Cancelled</h1>
+      
+      <p className="text-gray-600 mb-6">
+        Your subscription process was cancelled. You can still enjoy our free content or subscribe at any time.
+      </p>
+      
+      <div className="flex flex-col sm:flex-row gap-4 justify-center">
+        <Link to="/dashboard" className="btn btn-secondary">
+          Back to Dashboard
+        </Link>
+        
+        <button 
+          onClick={() => window.history.back()}
+          className="btn btn-primary"
+        >
+          Try Again
+        </button>
+      </div>
+    </div>
+  );
+};
+
+export default SubscriptionCancel;
+
+// client/src/pages/NotFound.jsx
+import { Link } from 'react-router-dom';
+
+const NotFound = () => {
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-4">
+      <h1 className="text-9xl font-bold text-indigo-600">404</h1>
+      <h2 className="text-2xl font-bold text-gray-900 mt-4 mb-6">Page Not Found</h2>
+      <p className="text-gray-600 text-center max-w-md mb-8">
+        The page you are looking for might have been removed, had its name changed, or is temporarily unavailable.
+      </p>
+      <Link to="/" className="btn btn-primary">
+        Go Home
+      </Link>
+    </div>
+  );
+};
+
+export default NotFound;
+
+// client/src/pages/AdminDashboard.jsx
+import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import axios from 'axios';
+import { toast } from 'react-toastify';
+import { API_URL } from '../config';
+import { FaPlus, FaEdit, FaTrash, FaSpinner } from 'react-icons/fa';
+
+const AdminDashboard = () => {
+  const [stories, setStories] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState(null);
+  
+  useEffect(() => {
+    fetchStories();
+  }, []);
+  
+  const fetchStories = async () => {
+    try {
+      setLoading(true);
+      const { data } = await axios.get(`${API_URL}/stories`);
+      setStories(data);
+    } catch (error) {
+      console.error('Error fetching stories:', error);
+      toast.error('Failed to load stories');
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const handleDelete = async (id) => {
+    if (!confirm('Are you sure you want to delete this story? This action cannot be undone.')) {
+      return;
+    }
+    
+    try {
+      setDeleting(id);
+      await axios.delete(`${API_URL}/admin/stories/${id}`);
+      setStories(stories.filter(story => story.id !== id));
+      toast.success('Story deleted successfully');
+    } catch (error) {
+      console.error('Error deleting story:', error);
+      toast.error('Failed to delete story');
+    } finally {
+      setDeleting(null);
+    }
+  };
+  
+  return (
+    <div className="max-w-6xl mx-auto">
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
+        
+        <Link to="/admin/story/create" className="btn btn-primary flex items-center">
+          <FaPlus className="mr-2" /> New Story
+        </Link>
+      </div>
+      
+      {loading ? (
+        <div className="flex justify-center py-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-600"></div>
+        </div>
+      ) : stories.length === 0 ? (
+        <div className="bg-white rounded-lg shadow-md p-8 text-center">
+          <h2 className="text-xl font-medium text-gray-700 mb-4">No stories yet</h2>
+          <p className="text-gray-500 mb-6">
+            Start by creating your first story to help users learn Spanish.
+          </p>
+          <Link to="/admin/story/create" className="btn btn-primary">
+            Create Story
+          </Link>
+        </div>
+      ) : (
+        <div className="bg-white rounded-lg shadow-md overflow-hidden">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Level</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Messages</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Premium</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {stories.map(story => (
+                <tr key={story.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="font-medium text-gray-900">{story.title}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      story.level === 'beginner' ? 'bg-green-100 text-green-800' :
+                      story.level === 'intermediate' ? 'bg-yellow-100 text-yellow-800' :
+                      'bg-red-100 text-red-800'
+                    }`}>
+                      {story.level.charAt(0).toUpperCase() + story.level.slice(1)}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-gray-600">
+                    {story.messageCount} messages
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {story.isPremium ? (
+                      <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-medium">Premium</span>
+                    ) : (
+                      <span className="px-2 py-1 bg-gray-100 text-gray-800 rounded-full text-xs font-medium">Free</span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-gray-600">
+                    {new Date(story.createdAt).toLocaleDateString()}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <div className="flex justify-end space-x-2">
+                      <Link 
+                        to={`/story/${story.id}`} 
+                        className="text-indigo-600 hover:text-indigo-900 p-1"
+                        title="View"
+                      >
+                        <FaEye />
+                      </Link>
+                      <Link 
+                        to={`/admin/story/${story.id}/edit`} 
+                        className="text-blue-600 hover:text-blue-900 p-1"
+                        title="Edit"
+                      >
+                        <FaEdit />
+                      </Link>
+                      <button
+                        onClick={() => handleDelete(story.id)}
+                        className="text-red-600 hover:text-red-900 p-1"
+                        title="Delete"
+                        disabled={deleting === story.id}
+                      >
+                        {deleting === story.id ? <FaSpinner className="animate-spin" /> : <FaTrash />}
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default AdminDashboard;Class(option)}`}
+              onClick={() => handleOptionSelect(option)}
+              disabled={answered}
+            >
+              {option}
+            </button>
+          ))}
+        </div>
+        
+        <div className="mt-4 flex justify-end">
+          <button
+            className="btn btn-primary"
+            onClick={handleSubmit}
+            disabled={!selectedOption || answered}
+          >
+            {answered ? 'Continue' : 'Check Answer'}
+          </button>
+        </div>
+        
+        {answered && (
+          <div className={`mt-3 p-3 rounded-md ${selectedOption === quiz.correctOption ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}>
+            {selectedOption === quiz.correctOption 
+              ? '¡Correcto! Great job!'
+              : `Incorrect. The correct answer is: ${quiz.correctOption}`
+            }
+          </div>
+        )}
+      </div>
+    );
+  }
+  
+  if (quiz.quizType === 'fill-blank') {
+    // Implement fill-in-the-blank UI
+    return (
+      <div className="bg-white rounded-lg shadow-md p-4 my-4">
+        <h3 className="font-medium text-gray-800 mb-3">Fill in the blank:</h3>
+        <p className="mb-3">{quiz.question}</p>
+        
+        <div className="space-y-2">
+          {quiz.options.map((option, index) => (
+            <button
+              key={index}
+              className={`w-full text-left p-3 border rounded-md transition ${getOptionClass(option)}`}
+              onClick={() => handleOptionSelect(option)}
+              disabled={answered}
+            >
+              {option}
+            </button>
+          ))}
+        </div>
+        
+        <div className="mt-4 flex justify-end">
+          <button
+            className="btn btn-primary"
+            onClick={handleSubmit}
+            disabled={!selectedOption || answered}
+          >
+            {answered ? 'Continue' : 'Check Answer'}
+          </button>
+        </div>
+        
+        {answered && (
+          <div className={`mt-3 p-3 rounded-md ${selectedOption === quiz.correctOption ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}>
+            {selectedOption === quiz.correctOption 
+              ? '¡Correcto! Great job!'
+              : `Incorrect. The correct answer is: ${quiz.correctOption}`
+            }
+          </div>
+        )}
+      </div>
+    );
+  }
+  
+  if (quiz.quizType === 'word-match') {
+    // Implement word matching UI
+    return (
+      <div className="bg-white rounded-lg shadow-md p-4 my-4">
+        <h3 className="font-medium text-gray-800 mb-3">Match the correct meaning:</h3>
+        <p className="mb-3">{quiz.question}</p>
+        
+        <div className="space-y-2">
+          {quiz.options.map((option, index) => (
+            <button
+              key={index}
+              className={`w-full text-left p-3 border rounded-md transition ${getOption

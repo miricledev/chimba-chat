@@ -1,0 +1,1064 @@
+// server/models/User.js
+const { Model, DataTypes } = require('sequelize');
+const bcrypt = require('bcrypt');
+const sequelize = require('../config/database');
+
+class User extends Model {
+  static async hashPassword(password) {
+    return await bcrypt.hash(password, 10);
+  }
+
+  async comparePassword(password) {
+    return await bcrypt.compare(password, this.password);
+  }
+}
+
+User.init({
+  id: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
+    primaryKey: true,
+  },
+  username: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    unique: true,
+  },
+  email: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    unique: true,
+    validate: {
+      isEmail: true,
+    }
+  },
+  password: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  role: {
+    type: DataTypes.ENUM('user', 'admin'),
+    defaultValue: 'user',
+  },
+  xp: {
+    type: DataTypes.INTEGER,
+    defaultValue: 0,
+  },
+  stripeCustomerId: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  isPremium: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+  },
+  lastActive: {
+    type: DataTypes.DATE,
+    defaultValue: DataTypes.NOW,
+  }
+}, {
+  sequelize,
+  modelName: 'User',
+  timestamps: true,
+  hooks: {
+    beforeCreate: async (user) => {
+      user.password = await User.hashPassword(user.password);
+    },
+    beforeUpdate: async (user) => {
+      if (user.changed('password')) {
+        user.password = await User.hashPassword(user.password);
+      }
+    }
+  }
+});
+
+module.exports = User;
+
+// server/models/Story.js
+const { Model, DataTypes } = require('sequelize');
+const sequelize = require('../config/database');
+
+class Story extends Model {}
+
+Story.init({
+  id: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
+    primaryKey: true,
+  },
+  title: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  description: {
+    type: DataTypes.TEXT,
+    allowNull: false,
+  },
+  level: {
+    type: DataTypes.ENUM('beginner', 'intermediate', 'advanced'),
+    allowNull: false,
+  },
+  tags: {
+    type: DataTypes.ARRAY(DataTypes.STRING),
+    defaultValue: [],
+  },
+  imageUrl: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  isPremium: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+  },
+  messageCount: {
+    type: DataTypes.INTEGER,
+    defaultValue: 0,
+  },
+  totalXp: {
+    type: DataTypes.INTEGER,
+    defaultValue: 0,
+  }
+}, {
+  sequelize,
+  modelName: 'Story',
+  timestamps: true,
+});
+
+module.exports = Story;
+
+// server/models/Message.js
+const { Model, DataTypes } = require('sequelize');
+const sequelize = require('../config/database');
+
+class Message extends Model {}
+
+Message.init({
+  id: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
+    primaryKey: true,
+  },
+  storyId: {
+    type: DataTypes.UUID,
+    allowNull: false,
+    references: {
+      model: 'Stories',
+      key: 'id'
+    }
+  },
+  text: {
+    type: DataTypes.TEXT,
+    allowNull: false,
+  },
+  order: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+  },
+  quizType: {
+    type: DataTypes.ENUM('none', 'multiple-choice', 'fill-blank', 'word-match'),
+    defaultValue: 'none',
+  },
+  options: {
+    type: DataTypes.JSON,
+    defaultValue: null,
+  },
+  correctOption: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  xpValue: {
+    type: DataTypes.INTEGER,
+    defaultValue: 5,
+  },
+  translations: {
+    type: DataTypes.JSON,
+    defaultValue: {},
+  },
+}, {
+  sequelize,
+  modelName: 'Message',
+  timestamps: true,
+});
+
+module.exports = Message;
+
+// server/models/UserProgress.js
+const { Model, DataTypes } = require('sequelize');
+const sequelize = require('../config/database');
+
+class UserProgress extends Model {}
+
+UserProgress.init({
+  id: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
+    primaryKey: true,
+  },
+  userId: {
+    type: DataTypes.UUID,
+    allowNull: false,
+    references: {
+      model: 'Users',
+      key: 'id'
+    }
+  },
+  storyId: {
+    type: DataTypes.UUID,
+    allowNull: false,
+    references: {
+      model: 'Stories',
+      key: 'id'
+    }
+  },
+  lastMessageIndex: {
+    type: DataTypes.INTEGER,
+    defaultValue: 0,
+  },
+  completed: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+  },
+  xpEarned: {
+    type: DataTypes.INTEGER,
+    defaultValue: 0,
+  },
+  correctAnswers: {
+    type: DataTypes.INTEGER,
+    defaultValue: 0,
+  },
+  totalQuestions: {
+    type: DataTypes.INTEGER,
+    defaultValue: 0,
+  }
+}, {
+  sequelize,
+  modelName: 'UserProgress',
+  timestamps: true,
+});
+
+module.exports = UserProgress;
+
+// server/models/index.js
+const User = require('./User');
+const Story = require('./Story');
+const Message = require('./Message');
+const UserProgress = require('./UserProgress');
+
+// Define relationships
+Story.hasMany(Message, { foreignKey: 'storyId', as: 'messages' });
+Message.belongsTo(Story, { foreignKey: 'storyId' });
+
+User.hasMany(UserProgress, { foreignKey: 'userId', as: 'progress' });
+UserProgress.belongsTo(User, { foreignKey: 'userId' });
+
+Story.hasMany(UserProgress, { foreignKey: 'storyId', as: 'userProgress' });
+UserProgress.belongsTo(Story, { foreignKey: 'storyId' });
+
+module.exports = {
+  User,
+  Story,
+  Message,
+  UserProgress
+};
+
+// server/config/database.js
+const { Sequelize } = require('sequelize');
+require('dotenv').config();
+
+const sequelize = new Sequelize(
+  process.env.DB_NAME,
+  process.env.DB_USER,
+  process.env.DB_PASSWORD,
+  {
+    host: process.env.DB_HOST,
+    dialect: 'postgres',
+    logging: process.env.NODE_ENV === 'development' ? console.log : false,
+    dialectOptions: {
+      ssl: process.env.NODE_ENV === 'production' ? {
+        require: true,
+        rejectUnauthorized: false
+      } : false
+    }
+  }
+);
+
+module.exports = sequelize;
+
+// server/middleware/auth.js
+const jwt = require('jsonwebtoken');
+const { User } = require('../models');
+
+exports.authenticate = async (req, res, next) => {
+  try {
+    // Get token from header
+    const token = req.headers.authorization?.split(' ')[1];
+
+    if (!token) {
+      return res.status(401).json({ message: 'No token, authorization denied' });
+    }
+
+    // Verify token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findByPk(decoded.id);
+
+    if (!user) {
+      return res.status(401).json({ message: 'User not found' });
+    }
+
+    req.user = user;
+    next();
+  } catch (err) {
+    console.error('Auth middleware error:', err.message);
+    return res.status(401).json({ message: 'Token is not valid' });
+  }
+};
+
+exports.isAdmin = (req, res, next) => {
+  if (req.user && req.user.role === 'admin') {
+    next();
+  } else {
+    return res.status(403).json({ message: 'Access denied, admin privileges required' });
+  }
+};
+
+// server/middleware/errorHandler.js
+exports.errorHandler = (err, req, res, next) => {
+  console.error(err.stack);
+  
+  const statusCode = err.statusCode || 500;
+  const message = err.message || 'Internal Server Error';
+  
+  res.status(statusCode).json({
+    status: 'error',
+    message,
+    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+  });
+};
+
+// server/controllers/authController.js
+const { User } = require('../models');
+const jwt = require('jsonwebtoken');
+
+// Generate JWT
+const generateToken = (id) => {
+  return jwt.sign({ id }, process.env.JWT_SECRET, {
+    expiresIn: '30d'
+  });
+};
+
+exports.register = async (req, res, next) => {
+  try {
+    const { username, email, password } = req.body;
+
+    // Check if user already exists
+    const userExists = await User.findOne({ 
+      where: { 
+        [sequelize.Op.or]: [{ email }, { username }] 
+      } 
+    });
+
+    if (userExists) {
+      return res.status(400).json({ message: 'User already exists' });
+    }
+
+    // Create user
+    const user = await User.create({
+      username,
+      email,
+      password
+    });
+
+    // Generate token
+    const token = generateToken(user.id);
+
+    res.status(201).json({
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      role: user.role,
+      xp: user.xp,
+      isPremium: user.isPremium,
+      token
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.login = async (req, res, next) => {
+  try {
+    const { email, password } = req.body;
+
+    // Check if user exists
+    const user = await User.findOne({ where: { email } });
+    
+    if (!user) {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+
+    // Check password
+    const isMatch = await user.comparePassword(password);
+    
+    if (!isMatch) {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+
+    // Update last active
+    user.lastActive = new Date();
+    await user.save();
+
+    // Generate token
+    const token = generateToken(user.id);
+
+    res.json({
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      role: user.role,
+      xp: user.xp,
+      isPremium: user.isPremium,
+      token
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.getCurrentUser = async (req, res) => {
+  try {
+    const user = await User.findByPk(req.user.id, {
+      attributes: { exclude: ['password'] }
+    });
+    
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    res.json(user);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// server/controllers/storyController.js
+const { Story, Message, UserProgress } = require('../models');
+const sequelize = require('../config/database');
+
+// Get all stories (public endpoint)
+exports.getAllStories = async (req, res, next) => {
+  try {
+    const { level, tag } = req.query;
+
+    const where = {};
+    
+    // Filter by level if provided
+    if (level) {
+      where.level = level;
+    }
+    
+    // Filter by tag if provided
+    if (tag) {
+      where.tags = { [sequelize.Op.contains]: [tag] };
+    }
+
+    const stories = await Story.findAll({
+      where,
+      attributes: [
+        'id', 'title', 'description', 'level', 
+        'tags', 'imageUrl', 'isPremium', 'messageCount',
+        'totalXp', 'createdAt'
+      ],
+      order: [['createdAt', 'DESC']]
+    });
+
+    res.json(stories);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Get one story with messages
+exports.getStoryById = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    
+    const story = await Story.findByPk(id, {
+      include: [
+        {
+          model: Message,
+          as: 'messages',
+          order: [['order', 'ASC']]
+        }
+      ]
+    });
+    
+    if (!story) {
+      return res.status(404).json({ message: 'Story not found' });
+    }
+
+    // Check user progress if authenticated
+    let userProgress = null;
+    if (req.user) {
+      userProgress = await UserProgress.findOne({
+        where: {
+          userId: req.user.id,
+          storyId: story.id
+        }
+      });
+      
+      // If no progress found, create an initial progress record
+      if (!userProgress) {
+        userProgress = await UserProgress.create({
+          userId: req.user.id,
+          storyId: story.id,
+          lastMessageIndex: 0,
+          completed: false,
+          xpEarned: 0
+        });
+      }
+    }
+    
+    // For non-premium users and premium stories, limit the messages
+    const isPremiumStory = story.isPremium;
+    const userIsPremium = req.user?.isPremium || false;
+    
+    if (isPremiumStory && !userIsPremium) {
+      // Only show half of the messages for premium stories
+      const halfIndex = Math.floor(story.messages.length / 2);
+      story.messages = story.messages.slice(0, halfIndex);
+      story.limitedAccess = true;
+    }
+
+    res.json({
+      story,
+      userProgress: userProgress ? {
+        lastMessageIndex: userProgress.lastMessageIndex,
+        completed: userProgress.completed,
+        xpEarned: userProgress.xpEarned,
+        correctAnswers: userProgress.correctAnswers,
+        totalQuestions: userProgress.totalQuestions
+      } : null
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Update user progress
+exports.updateProgress = async (req, res, next) => {
+  try {
+    const { storyId } = req.params;
+    const { messageIndex, isCorrect, isCompleted } = req.body;
+
+    // Validate the story exists
+    const story = await Story.findByPk(storyId, {
+      include: [{
+        model: Message,
+        as: 'messages',
+        where: { order: messageIndex },
+        required: false
+      }]
+    });
+
+    if (!story) {
+      return res.status(404).json({ message: 'Story not found' });
+    }
+
+    // Find or create user progress
+    let userProgress = await UserProgress.findOne({
+      where: {
+        userId: req.user.id,
+        storyId
+      }
+    });
+
+    if (!userProgress) {
+      userProgress = await UserProgress.create({
+        userId: req.user.id,
+        storyId,
+        lastMessageIndex: 0,
+        completed: false,
+        xpEarned: 0
+      });
+    }
+
+    // Calculate XP earned
+    let xpToAdd = 0;
+    if (story.messages && story.messages.length > 0) {
+      const message = story.messages[0];
+      // Base XP for viewing the message
+      xpToAdd += 2;
+      
+      // Additional XP for correct answers
+      if (message.quizType !== 'none' && isCorrect) {
+        xpToAdd += message.xpValue || 5;
+        userProgress.correctAnswers += 1;
+      }
+      
+      if (message.quizType !== 'none') {
+        userProgress.totalQuestions += 1;
+      }
+    }
+
+    // Update progress
+    userProgress.lastMessageIndex = Math.max(messageIndex, userProgress.lastMessageIndex);
+    userProgress.completed = isCompleted || userProgress.completed;
+    userProgress.xpEarned += xpToAdd;
+    await userProgress.save();
+
+    // Update user XP
+    if (xpToAdd > 0) {
+      await req.user.increment('xp', { by: xpToAdd });
+    }
+
+    res.json({
+      progress: userProgress,
+      xpEarned: xpToAdd
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// server/controllers/adminController.js
+const { Story, Message } = require('../models');
+const sequelize = require('../config/database');
+
+// Create a new story with messages
+exports.createStory = async (req, res, next) => {
+  const transaction = await sequelize.transaction();
+  
+  try {
+    const { 
+      title, description, level, tags, imageUrl, isPremium, 
+      messages 
+    } = req.body;
+
+    // Create the story
+    const story = await Story.create({
+      title,
+      description,
+      level,
+      tags,
+      imageUrl,
+      isPremium,
+      messageCount: messages.length,
+      totalXp: messages.reduce((sum, msg) => sum + (msg.xpValue || 5), 0)
+    }, { transaction });
+
+    // Create all messages
+    const messageRecords = await Promise.all(
+      messages.map((message, index) => {
+        return Message.create({
+          ...message,
+          storyId: story.id,
+          order: message.order || index
+        }, { transaction });
+      })
+    );
+
+    await transaction.commit();
+
+    res.status(201).json({
+      story,
+      messagesCreated: messageRecords.length
+    });
+  } catch (error) {
+    await transaction.rollback();
+    next(error);
+  }
+};
+
+// Update a story
+exports.updateStory = async (req, res, next) => {
+  const transaction = await sequelize.transaction();
+  
+  try {
+    const { id } = req.params;
+    const { 
+      title, description, level, tags, imageUrl, isPremium, 
+      messages 
+    } = req.body;
+
+    // Check if story exists
+    const story = await Story.findByPk(id);
+    
+    if (!story) {
+      return res.status(404).json({ message: 'Story not found' });
+    }
+
+    // Update story
+    await story.update({
+      title,
+      description,
+      level,
+      tags,
+      imageUrl,
+      isPremium,
+      messageCount: messages ? messages.length : story.messageCount,
+      totalXp: messages ? messages.reduce((sum, msg) => sum + (msg.xpValue || 5), 0) : story.totalXp
+    }, { transaction });
+
+    // Update messages if provided
+    if (messages && messages.length > 0) {
+      // Delete all existing messages
+      await Message.destroy({ where: { storyId: id }, transaction });
+      
+      // Create all new messages
+      await Promise.all(
+        messages.map((message, index) => {
+          return Message.create({
+            ...message,
+            storyId: story.id,
+            order: message.order || index
+          }, { transaction });
+        })
+      );
+    }
+
+    await transaction.commit();
+
+    res.json({
+      story,
+      messagesUpdated: messages ? messages.length : 0
+    });
+  } catch (error) {
+    await transaction.rollback();
+    next(error);
+  }
+};
+
+// Delete a story
+exports.deleteStory = async (req, res, next) => {
+  const transaction = await sequelize.transaction();
+  
+  try {
+    const { id } = req.params;
+    
+    // Check if story exists
+    const story = await Story.findByPk(id);
+    
+    if (!story) {
+      return res.status(404).json({ message: 'Story not found' });
+    }
+
+    // Delete all messages
+    await Message.destroy({ where: { storyId: id }, transaction });
+    
+    // Delete story
+    await story.destroy({ transaction });
+    
+    await transaction.commit();
+    
+    res.json({ message: 'Story deleted successfully' });
+  } catch (error) {
+    await transaction.rollback();
+    next(error);
+  }
+};
+
+// server/controllers/paymentController.js
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+const { User } = require('../models');
+
+exports.createCheckoutSession = async (req, res, next) => {
+  try {
+    const { priceId } = req.body;
+    const user = req.user;
+    
+    // Create or retrieve the customer
+    let customer;
+    if (user.stripeCustomerId) {
+      customer = await stripe.customers.retrieve(user.stripeCustomerId);
+    } else {
+      customer = await stripe.customers.create({
+        email: user.email,
+        metadata: {
+          userId: user.id
+        }
+      });
+      
+      // Save the customer ID
+      user.stripeCustomerId = customer.id;
+      await user.save();
+    }
+    
+    // Create the checkout session
+    const session = await stripe.checkout.sessions.create({
+      customer: customer.id,
+      payment_method_types: ['card'],
+      line_items: [
+        {
+          price: priceId,
+          quantity: 1,
+        },
+      ],
+      mode: 'subscription',
+      success_url: `${process.env.CLIENT_URL}/subscription/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${process.env.CLIENT_URL}/subscription/cancel`,
+      metadata: {
+        userId: user.id
+      }
+    });
+    
+    res.json({ url: session.url });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Webhook to handle subscription events
+exports.handleWebhook = async (req, res) => {
+  const signature = req.headers['stripe-signature'];
+  let event;
+  
+  try {
+    event = stripe.webhooks.constructEvent(
+      req.rawBody,
+      signature,
+      process.env.STRIPE_WEBHOOK_SECRET
+    );
+  } catch (err) {
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+  
+  // Handle the event
+  switch (event.type) {
+    case 'checkout.session.completed': {
+      const session = event.data.object;
+      const userId = session.metadata.userId;
+      
+      // Update user to premium
+      if (userId) {
+        const user = await User.findByPk(userId);
+        if (user) {
+          user.isPremium = true;
+          await user.save();
+        }
+      }
+      break;
+    }
+    case 'customer.subscription.deleted': {
+      const subscription = event.data.object;
+      const customer = await stripe.customers.retrieve(subscription.customer);
+      
+      // Find user by Stripe customer ID
+      if (customer && customer.metadata.userId) {
+        const user = await User.findByPk(customer.metadata.userId);
+        if (user) {
+          user.isPremium = false;
+          await user.save();
+        }
+      }
+      break;
+    }
+  }
+  
+  res.json({ received: true });
+};
+
+// Verify subscription status
+exports.checkSubscription = async (req, res, next) => {
+  try {
+    const user = req.user;
+    
+    if (!user) {
+      return res.status(401).json({ message: 'Not authenticated' });
+    }
+    
+    res.json({
+      isPremium: user.isPremium
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// server/controllers/leaderboardController.js
+const { User } = require('../models');
+
+exports.getLeaderboard = async (req, res, next) => {
+  try {
+    const { limit = 10 } = req.query;
+    
+    const leaderboard = await User.findAll({
+      attributes: ['id', 'username', 'xp'],
+      order: [['xp', 'DESC']],
+      limit: parseInt(limit)
+    });
+    
+    // Get the current user's rank if authenticated
+    let currentUserRank = null;
+    
+    if (req.user) {
+      const userCount = await User.count({
+        where: {
+          xp: {
+            [sequelize.Op.gt]: req.user.xp
+          }
+        }
+      });
+      
+      currentUserRank = userCount + 1;
+    }
+    
+    res.json({
+      leaderboard,
+      currentUserRank,
+      currentUserXp: req.user ? req.user.xp : null
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// server/routes/auth.js
+const router = require('express').Router();
+const authController = require('../controllers/authController');
+const { authenticate } = require('../middleware/auth');
+
+router.post('/register', authController.register);
+router.post('/login', authController.login);
+router.get('/me', authenticate, authController.getCurrentUser);
+
+module.exports = router;
+
+// server/routes/stories.js
+const router = require('express').Router();
+const storyController = require('../controllers/storyController');
+const { authenticate } = require('../middleware/auth');
+
+router.get('/', storyController.getAllStories);
+router.get('/:id', storyController.getStoryById);
+router.post('/:storyId/progress', authenticate, storyController.updateProgress);
+
+module.exports = router;
+
+// server/routes/admin.js
+const router = require('express').Router();
+const adminController = require('../controllers/adminController');
+const { authenticate, isAdmin } = require('../middleware/auth');
+
+router.post('/stories', authenticate, isAdmin, adminController.createStory);
+router.put('/stories/:id', authenticate, isAdmin, adminController.updateStory);
+router.delete('/stories/:id', authenticate, isAdmin, adminController.deleteStory);
+
+module.exports = router;
+
+// server/routes/payments.js
+const router = require('express').Router();
+const paymentController = require('../controllers/paymentController');
+const { authenticate } = require('../middleware/auth');
+
+router.post('/create-checkout-session', authenticate, paymentController.createCheckoutSession);
+router.get('/subscription-status', authenticate, paymentController.checkSubscription);
+router.post('/webhook', express.raw({ type: 'application/json' }), paymentController.handleWebhook);
+
+module.exports = router;
+
+// server/routes/leaderboard.js
+const router = require('express').Router();
+const leaderboardController = require('../controllers/leaderboardController');
+
+router.get('/', leaderboardController.getLeaderboard);
+
+module.exports = router;
+
+// server/app.js
+const express = require('express');
+const cors = require('cors');
+const helmet = require('helmet');
+const morgan = require('morgan');
+const path = require('path');
+require('dotenv').config();
+
+const sequelize = require('./config/database');
+const { errorHandler } = require('./middleware/errorHandler');
+
+// Import routes
+const authRoutes = require('./routes/auth');
+const storyRoutes = require('./routes/stories');
+const adminRoutes = require('./routes/admin');
+const paymentRoutes = require('./routes/payments');
+const leaderboardRoutes = require('./routes/leaderboard');
+
+const app = express();
+
+// Middleware
+app.use(helmet());
+app.use(cors({
+  origin: process.env.CLIENT_URL,
+  credentials: true
+}));
+app.use(morgan('dev'));
+
+// Body parsing middleware
+app.use(express.json({
+  verify: (req, res, buf) => {
+    if (req.originalUrl === '/api/payments/webhook') {
+      req.rawBody = buf.toString();
+    }
+  }
+}));
+app.use(express.urlencoded({ extended: true }));
+
+// Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/stories', storyRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/payments', paymentRoutes);
+app.use('/api/leaderboard', leaderboardRoutes);
+
+// Serve static assets in production
+if (process.env.NODE_ENV === 'production') {
+  app.use(express.static(path.join(__dirname, '../client/dist')));
+  
+  app.get('*', (req, res) => {
+    res.sendFile(path.resolve(__dirname, '../client/dist', 'index.html'));
+  });
+}
+
+// Error handler
+app.use(errorHandler);
+
+// Start server
+const PORT = process.env.PORT || 5000;
+
+const startServer = async () => {
+  try {
+    // Sync database
+    await sequelize.sync({ alter: process.env.NODE_ENV === 'development' });
+    console.log('Database connected');
+    
+    // Start server
+    app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+    });
+  } catch (error) {
+    console.error('Error starting server:', error);
+    process.exit(1);
+  }
+};
+
+startServer();
+
+module.exports = app;  // For testing
+
+// server/.env.example
+NODE_ENV=development
+PORT=5000
+CLIENT_URL=http://localhost:5173
+
+# Database
+DB_HOST=localhost
+DB_USER=postgres
+DB_PASSWORD=password
+DB_NAME=spanish_learning
+
+# JWT
+JWT_SECRET=your_jwt_secret_key_here
+
+# Stripe
+STRIPE_SECRET_KEY=sk_test_your_key_here
+STRIPE_WEBHOOK_SECRET=whsec_your_webhook_secret_here
+STRIPE_PRICE_ID=price_your_price_id_here

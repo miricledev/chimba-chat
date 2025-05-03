@@ -1,0 +1,35 @@
+{
+  "development": {
+    "username": "postgres",
+    "password": "kumar4569",
+    "database": "chimba_speak",
+    "host": "127.0.0.1",
+    "port": 5432,
+    "dialect": "postgres",
+    "dialectOptions": {
+      "ssl": false
+    }
+  },
+  "test": {
+    "username": "postgres",
+    "password": "kumar4569",
+    "database": "chimba_speak_test",
+    "host": "127.0.0.1",
+    "port": 5432,
+    "dialect": "postgres",
+    "dialectOptions": {
+      "ssl": false
+    }
+  },
+  "production": {
+    "username": "postgres",
+    "password": "kumar4569",
+    "database": "chimba_speak_prod",
+    "host": "127.0.0.1",
+    "port": 5432,
+    "dialect": "postgres",
+    "dialectOptions": {
+      "ssl": false
+    }
+  }
+}
